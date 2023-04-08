@@ -13,3 +13,8 @@ remappings = [
 
 [invariant]
 runs = 1000
+
+[fmt]
+bracket_spacing = true
+number_underscore = 'thousands'
+wrap_comments = true
