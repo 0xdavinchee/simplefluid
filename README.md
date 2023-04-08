@@ -1,4 +1,9 @@
-# gm
+# simplefluid
 
-## WETH9 Foundry Invariant Tests
-Source: https://mirror.xyz/horsefacts.eth/Jex2YVaO65dda6zEyfM_-DXlXhOWCAoSpOx5PLocYgw
+an opinionated take on the Superfluid [protocol-monorepo](https://github.com/superfluid-finance/protocol-monorepo)
+
+## tech stack
+
+- Foundry
+- Hardhat
+- Slither
