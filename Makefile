@@ -12,4 +12,4 @@ checks:
 	done
 
 clean:
-	git checkout src/WETH9.sol
+	git checkout
