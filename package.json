@@ -32,7 +32,6 @@
     "hardhat-address-exporter": "^0.0.4",
     "hardhat-contract-sizer": "^2.8.0",
     "hardhat-deploy": "^0.11.25",
-    "hardhat-preprocessor": "^0.1.5",
     "nodemon": "^2.0.22",
     "solhint": "^3.4.1"
   }

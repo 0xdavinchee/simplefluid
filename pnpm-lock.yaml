@@ -22,9 +22,6 @@ devDependencies:
   hardhat-deploy:
     specifier: ^0.11.25
     version: 0.11.25
-  hardhat-preprocessor:
-    specifier: ^0.1.5
-    version: 0.1.5(hardhat@2.13.0)
   nodemon:
     specifier: ^2.0.22
     version: 2.0.22
@@ -2802,15 +2799,6 @@ packages:
       sha1: 1.1.1
     transitivePeerDependencies:
       - '@codechecks/client'
-    dev: true
-
-  /hardhat-preprocessor@0.1.5(hardhat@2.13.0):
-    resolution: {integrity: sha512-j8m44mmPxpxAAd0G8fPHRHOas/INZdzptSur0TNJvMEGcFdLDhbHHxBcqZVQ/bmiW42q4gC60AP4CXn9EF018g==}
-    peerDependencies:
-      hardhat: ^2.0.5
-    dependencies:
-      hardhat: 2.13.0(ts-node@10.9.1)(typescript@5.0.4)
-      murmur-128: 0.2.1
     dev: true
 
   /hardhat@2.13.0(ts-node@10.9.1)(typescript@5.0.4):
