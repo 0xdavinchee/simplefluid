@@ -1,0 +1,13 @@
+diff --git a/src/WETH9.sol b/src/WETH9.sol
+index 76b96c1..5b44d73 100644
+--- a/src/WETH9.sol
++++ b/src/WETH9.sol
+@@ -15,7 +15,7 @@ contract WETH9 {
+     mapping(address => mapping(address => uint256)) public allowance;
+ 
+     fallback() external payable {
+-        deposit();
++
+     }
+ 
+     function deposit() public payable {
