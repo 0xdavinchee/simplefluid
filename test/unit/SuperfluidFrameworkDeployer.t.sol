@@ -69,8 +69,8 @@ contract SuperfluidFrameworkDeployerTest is Test {
 
     function test_Pasisng_Transfer_Ownership() public {
         SuperfluidFrameworkDeployer.Framework memory framework = _deployer.getFramework();
-        assertEq(framework.governance.owner(), address(this), "Governance owner not set");
+        assertEq(framework.governance.owner(), address(_deployer), "Deployer should be owner");
         _deployer.transferOwnership(address(0x1));
-        assertEq(framework.governance.owner(), address(0x1), "Governance owner not set");
+        assertEq(framework.governance.owner(), address(0x1), "address(0x1) should be owner");
     }
 }
