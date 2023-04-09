@@ -1,0 +1,13 @@
+name: Test Contracts
+on:
+  push:
+    branches: ["*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Test Contracts
+        uses: ./.github/workflows/call.test-contracts.yml

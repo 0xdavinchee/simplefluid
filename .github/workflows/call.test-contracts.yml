@@ -1,6 +1,7 @@
-name: test
+name: Reusable Workflow | Test Contracts
 
-on: workflow_dispatch
+on:
+  workflow_call:
 
 env:
   FOUNDRY_PROFILE: ci
@@ -10,7 +11,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Foundry project
+    name: Test Contracts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
