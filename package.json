@@ -14,7 +14,7 @@
   "scripts": {
     "clean": "rm -rf out cache node_modules",
     "build": "hardhat compile && forge build",
-    "coverage": "forge coverage --report lcov",
+    "coverage": "forge coverage --report lcov && genhtml lcov.info -o coverage",
     "dev": "nodemon -e sol -x pnpm run test",
     "fmt": "forge fmt",
     "test": "forge test",

@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 
-import { ISuperToken } from "../src/interfaces/superfluid/ISuperToken.sol";
-import { ISuperTokenFactory } from "../src/interfaces/superfluid/ISuperTokenFactory.sol";
-import { SuperfluidFrameworkDeployer } from "../src/utils/SuperfluidFrameworkDeployer.sol";
+import { ISuperToken } from "../../src/interfaces/superfluid/ISuperToken.sol";
+import { ISuperTokenFactory } from "../../src/interfaces/superfluid/ISuperTokenFactory.sol";
+import { SuperfluidFrameworkDeployer } from "../utils/SuperfluidFrameworkDeployer.sol";
 
 contract SuperfluidFrameworkDeployerTest is Test {
     SuperfluidFrameworkDeployer internal _deployer;
@@ -26,7 +26,7 @@ contract SuperfluidFrameworkDeployerTest is Test {
         assert(address(framework.cfaV1Forwarder) != address(0));
     }
 
-    function test_Resolver_Set_Contracts() public {
+    function test_Passing_Resolver_Set_Contracts() public {
         SuperfluidFrameworkDeployer.Framework memory framework = _deployer.getFramework();
         assertEq(
             framework.resolver.get("TestGovernance.test"), address(framework.governance), "SuperfluidGovernance unset"
@@ -65,5 +65,12 @@ contract SuperfluidFrameworkDeployerTest is Test {
             address(superTokenLogic.constantInflowNFT()),
             "ConstantInflowNFT unset"
         );
+    }
+
+    function test_Pasisng_Transfer_Ownership() public {
+        SuperfluidFrameworkDeployer.Framework memory framework = _deployer.getFramework();
+        assertEq(framework.governance.owner(), address(this), "Governance owner not set");
+        _deployer.transferOwnership(address(0x1));
+        assertEq(framework.governance.owner(), address(0x1), "Governance owner not set");
     }
 }

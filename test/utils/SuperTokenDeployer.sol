@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity ^0.8.0;
 
-import { ConstantOutflowNFT } from "../superfluid/ConstantOutflowNFT.sol";
-import { ConstantInflowNFT } from "../superfluid/ConstantInflowNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ConstantOutflowNFT } from "../../src/superfluid/ConstantOutflowNFT.sol";
+import { ConstantInflowNFT } from "../../src/superfluid/ConstantInflowNFT.sol";
 import {
     IConstantOutflowNFT,
     IConstantInflowNFT,
     IPoolAdminNFT,
     IPoolMemberNFT
-} from "../interfaces/superfluid/ISuperToken.sol";
-import { IPureSuperToken } from "../interfaces/tokens/IPureSuperToken.sol";
-import { ISETH } from "../interfaces/tokens/ISETH.sol";
-import { PureSuperToken } from "../tokens/PureSuperToken.sol";
-import { SETHProxy } from "../tokens/SETH.sol";
-import { Superfluid } from "../superfluid/Superfluid.sol";
-import { SuperToken, ISuperToken } from "../superfluid/SuperToken.sol";
+} from "../../src/interfaces/superfluid/ISuperToken.sol";
+import { IPureSuperToken } from "../../src/interfaces/tokens/IPureSuperToken.sol";
+import { ISETH } from "../../src/interfaces/tokens/ISETH.sol";
+import { PureSuperToken } from "../../src/tokens/PureSuperToken.sol";
+import { SETHProxy } from "../../src/tokens/SETH.sol";
+import { Superfluid } from "../../src/superfluid/Superfluid.sol";
+import { SuperToken, ISuperToken } from "../../src/superfluid/SuperToken.sol";
 import {
     ISuperTokenFactory,
     SuperTokenFactory,
     ERC20WithTokenInfo
-} from "../superfluid/SuperTokenFactory.sol";
+} from "../../src/superfluid/SuperTokenFactory.sol";
 import { TestGovernance } from "./TestGovernance.sol";
 import { TestResolver } from "./TestResolver.sol";
 import { TestToken } from "./TestToken.sol";

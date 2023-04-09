@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity ^0.8.0;
 
-import { CFAv1Forwarder } from "./CFAv1Forwarder.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import { SuperfluidERC1967Proxy } from "../upgradability/SuperfluidERC1967Proxy.sol";
-import { ISuperfluid, ISuperfluidToken, Superfluid } from "../superfluid/Superfluid.sol";
 import { TestGovernance } from "./TestGovernance.sol";
-import { IFlowNFTBase } from "../interfaces/superfluid/IFlowNFTBase.sol";
-import { AgreementBase } from "../agreements/AgreementBase.sol";
-import { ConstantFlowAgreementV1 } from "../agreements/ConstantFlowAgreementV1.sol";
-import { ConstantOutflowNFT, IConstantOutflowNFT } from "../superfluid/ConstantOutflowNFT.sol";
-import { ConstantInflowNFT, IConstantInflowNFT } from "../superfluid/ConstantInflowNFT.sol";
-import { InstantDistributionAgreementV1 } from "../agreements/InstantDistributionAgreementV1.sol";
-import { SuperToken, SuperTokenFactory, ERC20WithTokenInfo } from "../superfluid/SuperTokenFactory.sol";
-import { ISuperToken, SuperToken } from "../superfluid/SuperToken.sol";
 import { TestResolver } from "./TestResolver.sol";
-import { SuperfluidLoader } from "./SuperfluidLoader.sol";
-import { SETHProxy } from "../tokens/SETH.sol";
-import { PureSuperToken } from "../tokens/PureSuperToken.sol";
+import { SuperfluidLoader } from "../../src/utils/SuperfluidLoader.sol";
+import { CFAv1Forwarder } from "../../src/utils/CFAv1Forwarder.sol";
+import { SuperfluidERC1967Proxy } from "../../src/upgradability/SuperfluidERC1967Proxy.sol";
+import { ISuperfluid, ISuperfluidToken, Superfluid } from "../../src/superfluid/Superfluid.sol";
+import { IFlowNFTBase } from "../../src/interfaces/superfluid/IFlowNFTBase.sol";
+import { AgreementBase } from "../../src/agreements/AgreementBase.sol";
+import { ConstantFlowAgreementV1 } from "../../src/agreements/ConstantFlowAgreementV1.sol";
+import { ConstantOutflowNFT, IConstantOutflowNFT } from "../../src/superfluid/ConstantOutflowNFT.sol";
+import { ConstantInflowNFT, IConstantInflowNFT } from "../../src/superfluid/ConstantInflowNFT.sol";
+import { InstantDistributionAgreementV1 } from "../../src/agreements/InstantDistributionAgreementV1.sol";
+import { SuperToken, SuperTokenFactory, ERC20WithTokenInfo } from "../../src/superfluid/SuperTokenFactory.sol";
+import { ISuperToken, SuperToken } from "../../src/superfluid/SuperToken.sol";
+import { SETHProxy } from "../../src/tokens/SETH.sol";
+import { PureSuperToken } from "../../src/tokens/PureSuperToken.sol";
 
 /// @title Superfluid Framework Deployer
 /// @author Superfluid | Modified by 0xdavinchee

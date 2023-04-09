@@ -4,8 +4,8 @@ pragma solidity 0.8.19;
 import {
     ISuperfluid,
     ISuperfluidToken
-} from "../interfaces/superfluid/ISuperfluid.sol";
-import { SuperfluidGovernanceBase } from "../gov/SuperfluidGovernanceBase.sol";
+} from "../../src/interfaces/superfluid/ISuperfluid.sol";
+import { SuperfluidGovernanceBase } from "../../src/gov/SuperfluidGovernanceBase.sol";
 
 /**
  * @title Test governance contract

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity 0.8.19;
 
-import { Resolver } from "./Resolver.sol";
+import { Resolver } from "../../src/utils/Resolver.sol";
 
 /// @title TestResolver contract
 /// @author Superfluid
