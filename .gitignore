@@ -28,3 +28,6 @@ artifacts
 # Generated
 addresses/
 lcov.info
+
+# Misc
+.DS_STORE
