@@ -5,4 +5,4 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/call.test-contracts.yml@main
+    uses: ./.github/workflows/call.test-contracts.yml
