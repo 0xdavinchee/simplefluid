@@ -18,6 +18,6 @@ library SuperTokenDeployerLibrary {
         IConstantOutflowNFT constantOuflowNFTLogic,
         IConstantInflowNFT constantInflowNFTLogic
     ) external returns (address) {
-        return address(new SuperToken(host, constantOuflowNFTLogic, constantInflowNFTLogic));
+        return address(new SuperToken());
     }
 }

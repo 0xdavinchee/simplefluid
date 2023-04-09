@@ -13,7 +13,7 @@ import { FixedSizeData } from "../libs/FixedSizeData.sol";
 /**
  * @title Superfluid's token implementation
  *
- * @author Superfluid
+ * @author Superfluid | Modified by 0xdavinchee
  */
 abstract contract SuperfluidToken is ISuperfluidToken
 {
@@ -25,7 +25,7 @@ abstract contract SuperfluidToken is ISuperfluidToken
     using SafeCast for int256;
 
     /// @dev Superfluid contract
-    ISuperfluid immutable internal _host;
+    ISuperfluid internal _host;
 
     /// @dev Active agreement bitmap
     mapping(address => uint256) internal _inactiveAgreementBitmap;
@@ -48,12 +48,6 @@ abstract contract SuperfluidToken is ISuperfluidToken
     uint256 private _reserve11;
     uint256 private _reserve12;
     uint256 internal _reserve13;
-
-    constructor(
-        ISuperfluid host
-    ) {
-        _host = host;
-    }
 
     /// @dev ISuperfluidToken.getHost implementation
     function getHost()

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity 0.8.19;
 
+import { IBeacon } from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {
     ISuperfluid,
     ISuperAgreement,
@@ -11,12 +12,9 @@ import {
     SuperfluidGovernanceConfigs
 } from "../interfaces/superfluid/ISuperfluid.sol";
 
-import { UUPSProxiable } from "../upgradability/UUPSProxiable.sol";
-
-
 /**
- * @title Base superfluid governance implementation
- * @author Superfluid
+ * @title SuperfluidGovernanceBase
+ * @author Superfluid | Modified by 0xdavinchee
  */
 abstract contract SuperfluidGovernanceBase is ISuperfluidGovernance
 {
@@ -64,28 +62,20 @@ abstract contract SuperfluidGovernanceBase is ISuperfluidGovernance
         ISuperfluid host,
         address hostNewLogic,
         address[] calldata agreementClassNewLogics,
-        address superTokenFactoryNewLogic
+        address superTokenFactoryNewLogic,
+        address superTokenBeacon
     )
         external override
         onlyAuthorized(host)
     {
         if (hostNewLogic != address(0)) {
-            UUPSProxiable(address(host)).updateCode(hostNewLogic);
-            UUPSProxiable(address(hostNewLogic)).castrate();
+            // UUPSProxiable(address(host)).updateCode(hostNewLogic);
         }
         for (uint i = 0; i < agreementClassNewLogics.length; ++i) {
             host.updateAgreementClass(ISuperAgreement(agreementClassNewLogics[i]));
-            UUPSProxiable(address(agreementClassNewLogics[i])).castrate();
         }
         if (superTokenFactoryNewLogic != address(0)) {
-            host.updateSuperTokenFactory(ISuperTokenFactory(superTokenFactoryNewLogic));
-
-            // the factory logic can be updated for non-upgradable hosts too,
-            // in this case it's used without proxy and already initialized.
-            // solhint-disable-next-line no-empty-blocks
-            try UUPSProxiable(address(superTokenFactoryNewLogic)).castrate() {}
-            // solhint-disable-next-line no-empty-blocks
-            catch {}
+            host.updateSuperTokenFactory(ISuperTokenFactory(superTokenFactoryNewLogic), IBeacon(superTokenBeacon));
         }
     }
 

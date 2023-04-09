@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity 0.8.19;
 
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { IBeacon } from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
-import { UUPSProxiable } from "../upgradability/UUPSProxiable.sol";
-import { UUPSProxy } from "../upgradability/UUPSProxy.sol";
+import { AgreementBase } from "../agreements/AgreementBase.sol";
+import { SuperfluidERC1967Proxy } from "../upgradability/SuperfluidERC1967Proxy.sol";
+import { SuperTokenFactory } from "./SuperTokenFactory.sol";
 
 import {
     ISuperfluid,
@@ -27,42 +31,22 @@ import { BaseRelayRecipient } from "../libs/BaseRelayRecipient.sol";
 /**
  * @dev The Superfluid host implementation.
  *
- * NOTE:
- * - Please read ISuperfluid for implementation notes.
- * - For some deeper technical notes, please visit protocol-monorepo wiki area.
- *
- * @author Superfluid
+ * @author Superfluid | Modified by 0xdavinchee
  */
-contract Superfluid is
-    UUPSProxiable,
-    ISuperfluid,
-    BaseRelayRecipient
-{
-
+contract Superfluid is ISuperfluid, Initializable, UUPSUpgradeable, BaseRelayRecipient {
     using SafeCast for uint256;
 
     struct AppManifest {
         uint256 configWord;
     }
 
-    // solhint-disable-next-line var-name-mixedcase
-    bool immutable public NON_UPGRADABLE_DEPLOYMENT;
+    bool public nonUpgradeableDeployment;
 
-    // solhint-disable-next-line var-name-mixedcase
-    bool immutable public APP_WHITE_LISTING_ENABLED;
+    bool public appWhitelistingEnabled;
 
-    /**
-     * @dev Maximum number of level of apps can be composed together
-     *
-     * NOTE:
-     * - TODO Composite app feature is currently disabled. Hence app cannot
-     *   will not be able to call other app.
-     */
-    // solhint-disable-next-line var-name-mixedcase
-    uint constant public MAX_APP_CALLBACK_LEVEL = 1;
+    uint256 public maxAppCallbackLevel;
 
-    // solhint-disable-next-line var-name-mixedcase
-    uint64 constant public CALLBACK_GAS_LIMIT = 3000000;
+    uint64 public callbackGasLimit;
 
     /* WARNING: NEVER RE-ORDER VARIABLES! Always double-check that new
        variables are added APPEND-ONLY. Re-ordering variables can
@@ -72,9 +56,11 @@ contract Superfluid is
     ISuperfluidGovernance internal _gov;
 
     /// @dev Agreement list indexed by agreement index minus one
+    // @note why do we do agreement index - 1?
     ISuperAgreement[] internal _agreementClasses;
     /// @dev Mapping between agreement type to agreement index (starting from 1)
-    mapping (bytes32 => uint) internal _agreementClassIndices;
+    // @note why do we start from 1?
+    mapping(bytes32 => uint256) internal _agreementClassIndices;
 
     /// @dev Super token
     ISuperTokenFactory internal _superTokenFactory;
@@ -93,39 +79,52 @@ contract Superfluid is
     /// function in its respective mock contract to ensure that it doesn't break anything or lead to unexpected
     /// behaviors/layout when upgrading
 
-    constructor(bool nonUpgradable, bool appWhiteListingEnabled) {
-        NON_UPGRADABLE_DEPLOYMENT = nonUpgradable;
-        APP_WHITE_LISTING_ENABLED = appWhiteListingEnabled;
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // UUPSProxiable
+    // UUPSUpgradeable
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function initialize(
-        ISuperfluidGovernance gov
-    )
+    function initialize(ISuperfluidGovernance gov_, bool nonUpgradeableDeployment_, bool appWhitelistingEnabled_)
         external
+        override
         initializer // OpenZeppelin Initializable
     {
-        _gov = gov;
+        _gov = gov_;
+
+        nonUpgradeableDeployment = nonUpgradeableDeployment_;
+        appWhitelistingEnabled = appWhitelistingEnabled_;
+
+        maxAppCallbackLevel = 1;
+        callbackGasLimit = 3_000_000;
     }
 
     function proxiableUUID() public pure override returns (bytes32) {
         return keccak256("org.superfluid-finance.contracts.Superfluid.implementation");
     }
 
-    function updateCode(address newAddress) external override onlyGovernance {
-        if (NON_UPGRADABLE_DEPLOYMENT) revert HOST_NON_UPGRADEABLE();
-        if (Superfluid(newAddress).NON_UPGRADABLE_DEPLOYMENT()) revert HOST_CANNOT_DOWNGRADE_TO_NON_UPGRADEABLE();
-        _updateCodeAddress(newAddress);
+    function _authorizeUpgrade(address)
+        // newImplementation
+        internal
+        view
+        override
+    {
+        if (msg.sender != address(_gov)) revert HOST_ONLY_GOVERNANCE();
     }
+
+    // @note this is the pattern of using UUPSProxiable, we are removing this and using a new pattern
+    // function updateCode(address newAddress) external onlyGovernance {
+    //     if (nonUpgradeableDeployment) revert HOST_NON_UPGRADEABLE();
+    //     if (Superfluid(newAddress).nonUpgradeableDeployment()) revert HOST_CANNOT_DOWNGRADE_TO_NON_UPGRADEABLE();
+    //     bytes memory data = abi.encodeWithSelector(
+    //         Superfluid.initialize.selector, _gov, nonUpgradeableDeployment, appWhitelistingEnabled
+    //     );
+    //     _upgradeToAndCallUUPS(newAddress, data, true);
+    // }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Time
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function getNow() public view  returns (uint256) {
+    function getNow() public view returns (uint256) {
         // solhint-disable-next-line not-rely-on-time
         return block.timestamp;
     }
@@ -143,21 +142,23 @@ contract Superfluid is
         _gov = newGov;
     }
 
-    /**************************************************************************
+    /**
+     *
      * Agreement Whitelisting
-     *************************************************************************/
+     *
+     */
 
-    function registerAgreementClass(ISuperAgreement agreementClassLogic) external onlyGovernance override {
+    function registerAgreementClass(ISuperAgreement agreementClassLogic) external override onlyGovernance {
         bytes32 agreementType = agreementClassLogic.agreementType();
         if (_agreementClassIndices[agreementType] != 0) {
             revert HOST_AGREEMENT_ALREADY_REGISTERED();
         }
         if (_agreementClasses.length >= 256) revert HOST_MAX_256_AGREEMENTS();
         ISuperAgreement agreementClass;
-        if (!NON_UPGRADABLE_DEPLOYMENT) {
+        if (!nonUpgradeableDeployment) {
             // initialize the proxy
-            UUPSProxy proxy = new UUPSProxy();
-            proxy.initializeProxy(address(agreementClassLogic));
+            SuperfluidERC1967Proxy proxy =
+            new SuperfluidERC1967Proxy(address(agreementClassLogic), abi.encodeWithSelector(AgreementBase.initialize.selector, address(this)));
             agreementClass = ISuperAgreement(address(proxy));
         } else {
             agreementClass = ISuperAgreement(address(agreementClassLogic));
@@ -168,41 +169,33 @@ contract Superfluid is
         emit AgreementClassRegistered(agreementType, address(agreementClassLogic));
     }
 
-    function updateAgreementClass(ISuperAgreement agreementClassLogic) external onlyGovernance override {
-        if (NON_UPGRADABLE_DEPLOYMENT) revert HOST_NON_UPGRADEABLE();
+    function updateAgreementClass(ISuperAgreement agreementClassLogic) external override onlyGovernance {
+        if (nonUpgradeableDeployment) revert HOST_NON_UPGRADEABLE();
         bytes32 agreementType = agreementClassLogic.agreementType();
-        uint idx = _agreementClassIndices[agreementType];
+        uint256 idx = _agreementClassIndices[agreementType];
         if (idx == 0) {
             revert HOST_AGREEMENT_IS_NOT_REGISTERED();
         }
-        UUPSProxiable proxiable = UUPSProxiable(address(_agreementClasses[idx - 1]));
-        proxiable.updateCode(address(agreementClassLogic));
+        AgreementBase proxiable = AgreementBase(address(_agreementClasses[idx - 1]));
+        bytes memory data = abi.encodeWithSelector(AgreementBase.initialize.selector, address(this));
+        proxiable.upgradeToAndCall(address(agreementClassLogic), data);
         emit AgreementClassUpdated(agreementType, address(agreementClassLogic));
     }
 
-    function isAgreementTypeListed(bytes32 agreementType)
-        external view override
-        returns (bool yes)
-    {
-        uint idx = _agreementClassIndices[agreementType];
+    function isAgreementTypeListed(bytes32 agreementType) external view override returns (bool yes) {
+        uint256 idx = _agreementClassIndices[agreementType];
         return idx != 0;
     }
 
-    function isAgreementClassListed(ISuperAgreement agreementClass)
-        public view override
-        returns (bool yes)
-    {
+    function isAgreementClassListed(ISuperAgreement agreementClass) public view override returns (bool yes) {
         bytes32 agreementType = agreementClass.agreementType();
-        uint idx = _agreementClassIndices[agreementType];
+        uint256 idx = _agreementClassIndices[agreementType];
         // it should also be the same agreement class proxy address
         return idx != 0 && _agreementClasses[idx - 1] == agreementClass;
     }
 
-    function getAgreementClass(bytes32 agreementType)
-        external view override
-        returns(ISuperAgreement agreementClass)
-    {
-        uint idx = _agreementClassIndices[agreementType];
+    function getAgreementClass(bytes32 agreementType) external view override returns (ISuperAgreement agreementClass) {
+        uint256 idx = _agreementClassIndices[agreementType];
         if (idx == 0) {
             revert HOST_AGREEMENT_IS_NOT_REGISTERED();
         }
@@ -210,10 +203,13 @@ contract Superfluid is
     }
 
     function mapAgreementClasses(uint256 bitmap)
-        external view override
-        returns (ISuperAgreement[] memory agreementClasses) {
-        uint i;
-        uint n;
+        external
+        view
+        override
+        returns (ISuperAgreement[] memory agreementClasses)
+    {
+        uint256 i;
+        uint256 n;
         // create memory output using the counted size
         agreementClasses = new ISuperAgreement[](_agreementClasses.length);
         // add to the output
@@ -224,14 +220,18 @@ contract Superfluid is
             }
         }
         // resize memory arrays
-        assembly { mstore(agreementClasses, n) }
+        assembly {
+            mstore(agreementClasses, n)
+        }
     }
 
     function addToAgreementClassesBitmap(uint256 bitmap, bytes32 agreementType)
-        external view override
+        external
+        view
+        override
         returns (uint256 newBitmap)
     {
-        uint idx = _agreementClassIndices[agreementType];
+        uint256 idx = _agreementClassIndices[agreementType];
         if (idx == 0) {
             revert HOST_AGREEMENT_IS_NOT_REGISTERED();
         }
@@ -239,10 +239,12 @@ contract Superfluid is
     }
 
     function removeFromAgreementClassesBitmap(uint256 bitmap, bytes32 agreementType)
-        external view override
+        external
+        view
+        override
         returns (uint256 newBitmap)
     {
-        uint idx = _agreementClassIndices[agreementType];
+        uint256 idx = _agreementClassIndices[agreementType];
         if (idx == 0) {
             revert HOST_AGREEMENT_IS_NOT_REGISTERED();
         }
@@ -253,50 +255,42 @@ contract Superfluid is
     // Super Token Factory
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function getSuperTokenFactory()
-        external view override
-        returns (ISuperTokenFactory factory)
-    {
+    function getSuperTokenFactory() external view override returns (ISuperTokenFactory factory) {
         return _superTokenFactory;
     }
 
-    function getSuperTokenFactoryLogic()
-        external view override
-        returns (address logic)
-    {
+    function getSuperTokenFactoryLogic() external view override returns (address logic) {
         assert(address(_superTokenFactory) != address(0));
-        if (NON_UPGRADABLE_DEPLOYMENT) return address(_superTokenFactory);
-        else return UUPSProxiable(address(_superTokenFactory)).getCodeAddress();
+        if (nonUpgradeableDeployment) return address(_superTokenFactory);
+        else return SuperfluidERC1967Proxy(payable(address(_superTokenFactory))).getImplementation();
     }
 
-    function updateSuperTokenFactory(ISuperTokenFactory newFactory)
-        external override
+    function updateSuperTokenFactory(ISuperTokenFactory newFactory_, IBeacon newSuperTokenBeacon_)
+        external
+        override
         onlyGovernance
     {
+        bytes memory data = abi.encodeWithSelector(
+            ISuperTokenFactory.initialize.selector, ISuperfluid(address(this)), newSuperTokenBeacon_
+        );
         if (address(_superTokenFactory) == address(0)) {
-            if (!NON_UPGRADABLE_DEPLOYMENT) {
+            if (!nonUpgradeableDeployment) {
                 // initialize the proxy
-                UUPSProxy proxy = new UUPSProxy();
-                proxy.initializeProxy(address(newFactory));
+                SuperfluidERC1967Proxy proxy = new SuperfluidERC1967Proxy(address(newFactory_), data);
                 _superTokenFactory = ISuperTokenFactory(address(proxy));
             } else {
-                _superTokenFactory = newFactory;
+                _superTokenFactory = newFactory_;
             }
-            _superTokenFactory.initialize();
         } else {
-            if (NON_UPGRADABLE_DEPLOYMENT) revert HOST_NON_UPGRADEABLE();
-            UUPSProxiable(address(_superTokenFactory)).updateCode(address(newFactory));
+            if (nonUpgradeableDeployment) revert HOST_NON_UPGRADEABLE();
+            SuperTokenFactory(address(_superTokenFactory)).upgradeToAndCall(address(newFactory_), data);
         }
         emit SuperTokenFactoryUpdated(_superTokenFactory);
     }
 
-    function updateSuperTokenLogic(ISuperToken token)
-        external override
-        onlyGovernance
-    {
+    function updateSuperTokenLogic(ISuperToken token) external override onlyGovernance {
         address code = address(_superTokenFactory.getSuperTokenLogic());
-        // assuming it's uups proxiable
-        UUPSProxiable(address(token)).updateCode(code);
+        // TODO this is different now, SuperTokens are BeaconProxies
         emit SuperTokenLogicUpdated(token, code);
     }
 
@@ -304,22 +298,16 @@ contract Superfluid is
     // App Registry
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function registerApp(
-        uint256 configWord
-    )
-        external override
-    {
+    function registerApp(uint256 configWord) external override {
         // check if whitelisting required
-        if (APP_WHITE_LISTING_ENABLED) {
+        if (appWhitelistingEnabled) {
             revert HOST_NO_APP_REGISTRATION_PERMISSIONS();
         }
         _registerApp(configWord, ISuperApp(msg.sender), true);
     }
 
-    function registerAppWithKey(uint256 configWord, string calldata registrationKey)
-        external override
-    {
-        if (APP_WHITE_LISTING_ENABLED) {
+    function registerAppWithKey(uint256 configWord, string calldata registrationKey) external override {
+        if (appWhitelistingEnabled) {
             bytes32 configKey = SuperfluidGovernanceConfigs.getAppRegistrationConfigKey(
                 // solhint-disable-next-line avoid-tx-origin
                 tx.origin,
@@ -327,45 +315,36 @@ contract Superfluid is
             );
             // check if the key is valid and not expired
             if (
-                _gov.getConfigAsUint256(
-                    this,
-                    ISuperfluidToken(address(0)),
-                    configKey
+                _gov.getConfigAsUint256(this, ISuperfluidToken(address(0)), configKey)
                 // solhint-disable-next-line not-rely-on-time
-                ) < block.timestamp) revert HOST_INVALID_OR_EXPIRED_SUPER_APP_REGISTRATION_KEY();
+                < block.timestamp
+            ) revert HOST_INVALID_OR_EXPIRED_SUPER_APP_REGISTRATION_KEY();
         }
         _registerApp(configWord, ISuperApp(msg.sender), true);
     }
 
-    function registerAppByFactory(
-        ISuperApp app,
-        uint256 configWord
-    )
-        external override
-    {
+    function registerAppByFactory(ISuperApp app, uint256 configWord) external override {
         // msg sender must be a contract
         {
             uint256 cs;
             // solhint-disable-next-line no-inline-assembly
-            assembly { cs := extcodesize(caller()) }
+            assembly {
+                cs := extcodesize(caller())
+            }
             if (cs == 0) revert HOST_MUST_BE_CONTRACT();
         }
 
-        if (APP_WHITE_LISTING_ENABLED) {
+        if (appWhitelistingEnabled) {
             // check if msg sender is authorized to register
             bytes32 configKey = SuperfluidGovernanceConfigs.getAppFactoryConfigKey(msg.sender);
-            bool isAuthorizedAppFactory = _gov.getConfigAsUint256(
-                this,
-                ISuperfluidToken(address(0)),
-                configKey) == 1;
+            bool isAuthorizedAppFactory = _gov.getConfigAsUint256(this, ISuperfluidToken(address(0)), configKey) == 1;
 
             if (!isAuthorizedAppFactory) revert HOST_UNAUTHORIZED_SUPER_APP_FACTORY();
         }
         _registerApp(configWord, app, false);
     }
 
-    function _registerApp(uint256 configWord, ISuperApp app, bool checkIfInAppConstructor) private
-    {
+    function _registerApp(uint256 configWord, ISuperApp app, bool checkIfInAppConstructor) private {
         // solhint-disable-next-line avoid-tx-origin
         if (msg.sender == tx.origin) {
             revert APP_RULE(SuperAppDefinitions.APP_RULE_NO_REGISTRATION_FOR_EOA);
@@ -374,40 +353,38 @@ contract Superfluid is
         if (checkIfInAppConstructor) {
             uint256 cs;
             // solhint-disable-next-line no-inline-assembly
-            assembly { cs := extcodesize(app) }
+            assembly {
+                cs := extcodesize(app)
+            }
             if (cs != 0) {
                 revert APP_RULE(SuperAppDefinitions.APP_RULE_REGISTRATION_ONLY_IN_CONSTRUCTOR);
             }
         }
         if (
-            !SuperAppDefinitions.isConfigWordClean(configWord) ||
-            SuperAppDefinitions.getAppCallbackLevel(configWord) == 0 ||
-            (configWord & SuperAppDefinitions.APP_JAIL_BIT) != 0
-            ) {
-                revert HOST_INVALID_CONFIG_WORD();
-            }
+            !SuperAppDefinitions.isConfigWordClean(configWord)
+                || SuperAppDefinitions.getAppCallbackLevel(configWord) == 0
+                || (configWord & SuperAppDefinitions.APP_JAIL_BIT) != 0
+        ) {
+            revert HOST_INVALID_CONFIG_WORD();
+        }
         if (_appManifests[ISuperApp(app)].configWord != 0) revert HOST_SUPER_APP_ALREADY_REGISTERED();
         _appManifests[ISuperApp(app)] = AppManifest(configWord);
         emit AppRegistered(app);
     }
 
-    function isApp(ISuperApp app) public view override returns(bool) {
+    function isApp(ISuperApp app) public view override returns (bool) {
         return _appManifests[app].configWord > 0;
     }
 
-    function getAppCallbackLevel(ISuperApp appAddr) public override view returns(uint8) {
+    function getAppCallbackLevel(ISuperApp appAddr) public view override returns (uint8) {
         return SuperAppDefinitions.getAppCallbackLevel(_appManifests[appAddr].configWord);
     }
 
-    function getAppManifest(
-        ISuperApp app
-    )
-        external view override
-        returns (
-            bool isSuperApp,
-            bool isJailed,
-            uint256 noopMask
-        )
+    function getAppManifest(ISuperApp app)
+        external
+        view
+        override
+        returns (bool isSuperApp, bool isJailed, uint256 noopMask)
     {
         AppManifest memory manifest = _appManifests[app];
         isSuperApp = (manifest.configWord > 0);
@@ -417,53 +394,36 @@ contract Superfluid is
         }
     }
 
-    function isAppJailed(
-        ISuperApp app
-    )
-        external view override
-        returns(bool)
-    {
+    function isAppJailed(ISuperApp app) external view override returns (bool) {
         return SuperAppDefinitions.isAppJailed(_appManifests[app].configWord);
     }
 
-    function allowCompositeApp(
-        ISuperApp targetApp
-    )
-        external override
-    {
+    function allowCompositeApp(ISuperApp targetApp) external override {
         ISuperApp sourceApp = ISuperApp(msg.sender);
         if (!isApp(sourceApp)) revert HOST_SENDER_IS_NOT_SUPER_APP();
         if (!isApp(targetApp)) revert HOST_RECEIVER_IS_NOT_SUPER_APP();
         if (getAppCallbackLevel(sourceApp) <= getAppCallbackLevel(targetApp)) {
             revert HOST_SOURCE_APP_NEEDS_HIGHER_APP_LEVEL();
-        } 
+        }
         _compositeApps[sourceApp][targetApp] = true;
     }
 
-    function isCompositeAppAllowed(
-        ISuperApp app,
-        ISuperApp targetApp
-    )
-        external view override
-        returns (bool)
-    {
+    function isCompositeAppAllowed(ISuperApp app, ISuperApp targetApp) external view override returns (bool) {
         return _compositeApps[app][targetApp];
     }
 
-    /**************************************************************************
+    /**
+     *
      * Agreement Framework
-     *************************************************************************/
+     *
+     */
 
-    function callAppBeforeCallback(
-        ISuperApp app,
-        bytes calldata callData,
-        bool isTermination,
-        bytes calldata ctx
-    )
-        external override
+    function callAppBeforeCallback(ISuperApp app, bytes calldata callData, bool isTermination, bytes calldata ctx)
+        external
+        override
         onlyAgreement
         assertValidCtx(ctx)
-        returns(bytes memory cbdata)
+        returns (bytes memory cbdata)
     {
         (bool success, bytes memory returnedData) = _callCallback(app, true, isTermination, callData, ctx);
         if (success) {
@@ -479,16 +439,12 @@ contract Superfluid is
         }
     }
 
-    function callAppAfterCallback(
-        ISuperApp app,
-        bytes calldata callData,
-        bool isTermination,
-        bytes calldata ctx
-    )
-        external override
+    function callAppAfterCallback(ISuperApp app, bytes calldata callData, bool isTermination, bytes calldata ctx)
+        external
+        override
         onlyAgreement
         assertValidCtx(ctx)
-        returns(bytes memory newCtx)
+        returns (bytes memory newCtx)
     {
         (bool success, bytes memory returnedData) = _callCallback(app, false, isTermination, callData, ctx);
         if (success) {
@@ -522,15 +478,10 @@ contract Superfluid is
         uint256 appCreditGranted,
         int256 appCreditUsed,
         ISuperfluidToken appCreditToken
-    )
-        external override
-        onlyAgreement
-        assertValidCtx(ctx)
-        returns (bytes memory appCtx)
-    {
+    ) external override onlyAgreement assertValidCtx(ctx) returns (bytes memory appCtx) {
         Context memory context = decodeCtx(ctx);
         // NOTE: we use 1 as a magic number here as we want to do this check once we are in a callback
-        // we use 1 instead of MAX_APP_CALLBACK_LEVEL because 1 captures what we are trying to enforce
+        // we use 1 instead of maxAppCallbackLevel because 1 captures what we are trying to enforce
         if (isApp(ISuperApp(context.msgSender)) && context.appCallbackLevel >= 1) {
             if (!_compositeApps[ISuperApp(context.msgSender)][app]) {
                 revert APP_RULE(SuperAppDefinitions.APP_RULE_COMPOSITE_APP_IS_NOT_WHITELISTED);
@@ -545,11 +496,9 @@ contract Superfluid is
         appCtx = _updateContext(context);
     }
 
-    function appCallbackPop(
-        bytes calldata ctx,
-        int256 appCreditUsedDelta
-    )
-        external override
+    function appCallbackPop(bytes calldata ctx, int256 appCreditUsedDelta)
+        external
+        override
         onlyAgreement
         returns (bytes memory newCtx)
     {
@@ -558,11 +507,9 @@ contract Superfluid is
         newCtx = _updateContext(context);
     }
 
-    function ctxUseCredit(
-        bytes calldata ctx,
-        int256 appCreditUsedMore
-    )
-        external override
+    function ctxUseCredit(bytes calldata ctx, int256 appCreditUsedMore)
+        external
+        override
         onlyAgreement
         assertValidCtx(ctx)
         returns (bytes memory newCtx)
@@ -573,12 +520,9 @@ contract Superfluid is
         newCtx = _updateContext(context);
     }
 
-    function jailApp(
-        bytes calldata ctx,
-        ISuperApp app,
-        uint256 reason
-    )
-        external override
+    function jailApp(bytes calldata ctx, ISuperApp app, uint256 reason)
+        external
+        override
         onlyAgreement
         assertValidCtx(ctx)
         returns (bytes memory newCtx)
@@ -587,38 +531,37 @@ contract Superfluid is
         return ctx;
     }
 
-    /**************************************************************************
-    * Contextless Call Proxies
-    *************************************************************************/
+    /**
+     *
+     * Contextless Call Proxies
+     *
+     */
 
     function _callAgreement(
         address msgSender,
         ISuperAgreement agreementClass,
         bytes memory callData,
         bytes memory userData
-    )
-        internal
-        cleanCtx
-        isAgreement(agreementClass)
-        returns(bytes memory returnedData)
-    {
+    ) internal cleanCtx isAgreement(agreementClass) returns (bytes memory returnedData) {
         // beware of the endianness
         bytes4 agreementSelector = CallUtils.parseSelector(callData);
 
         //Build context data
-        bytes memory ctx = _updateContext(Context({
-            appCallbackLevel: 0,
-            callType: ContextDefinitions.CALL_INFO_CALL_TYPE_AGREEMENT,
-            timestamp: getNow(),
-            msgSender: msgSender,
-            agreementSelector: agreementSelector,
-            userData: userData,
-            appCreditGranted: 0,
-            appCreditWantedDeprecated: 0,
-            appCreditUsed: 0,
-            appAddress: address(0),
-            appCreditToken: ISuperfluidToken(address(0))
-        }));
+        bytes memory ctx = _updateContext(
+            Context({
+                appCallbackLevel: 0,
+                callType: ContextDefinitions.CALL_INFO_CALL_TYPE_AGREEMENT,
+                timestamp: getNow(),
+                msgSender: msgSender,
+                agreementSelector: agreementSelector,
+                userData: userData,
+                appCreditGranted: 0,
+                appCreditWantedDeprecated: 0,
+                appCreditUsed: 0,
+                appAddress: address(0),
+                appCreditToken: ISuperfluidToken(address(0))
+            })
+        );
         bool success;
         (success, returnedData) = _callExternalWithReplacedCtx(address(agreementClass), callData, ctx);
         if (!success) {
@@ -628,42 +571,37 @@ contract Superfluid is
         _ctxStamp = 0;
     }
 
-    function callAgreement(
-        ISuperAgreement agreementClass,
-        bytes memory callData,
-        bytes memory userData
-    )
-        external override
-        returns(bytes memory returnedData)
+    function callAgreement(ISuperAgreement agreementClass, bytes memory callData, bytes memory userData)
+        external
+        override
+        returns (bytes memory returnedData)
     {
         return _callAgreement(msg.sender, agreementClass, callData, userData);
     }
 
-    function _callAppAction(
-        address msgSender,
-        ISuperApp app,
-        bytes memory callData
-    )
+    function _callAppAction(address msgSender, ISuperApp app, bytes memory callData)
         internal
         cleanCtx
         isAppActive(app)
         isValidAppAction(callData)
-        returns(bytes memory returnedData)
+        returns (bytes memory returnedData)
     {
         // Build context data
-        bytes memory ctx = _updateContext(Context({
-            appCallbackLevel: 0,
-            callType: ContextDefinitions.CALL_INFO_CALL_TYPE_APP_ACTION,
-            timestamp: getNow(),
-            msgSender: msgSender,
-            agreementSelector: 0,
-            userData: "",
-            appCreditGranted: 0,
-            appCreditWantedDeprecated: 0,
-            appCreditUsed: 0,
-            appAddress: address(app),
-            appCreditToken: ISuperfluidToken(address(0))
-        }));
+        bytes memory ctx = _updateContext(
+            Context({
+                appCallbackLevel: 0,
+                callType: ContextDefinitions.CALL_INFO_CALL_TYPE_APP_ACTION,
+                timestamp: getNow(),
+                msgSender: msgSender,
+                agreementSelector: 0,
+                userData: "",
+                appCreditGranted: 0,
+                appCreditWantedDeprecated: 0,
+                appCreditUsed: 0,
+                appAddress: address(app),
+                appCreditToken: ISuperfluidToken(address(0))
+            })
+        );
         bool success;
         (success, returnedData) = _callExternalWithReplacedCtx(address(app), callData, ctx);
         if (success) {
@@ -676,19 +614,19 @@ contract Superfluid is
         _ctxStamp = 0;
     }
 
-    function callAppAction(
-        ISuperApp app,
-        bytes memory callData
-    )
-        external override // NOTE: modifiers are called in _callAppAction
-        returns(bytes memory returnedData)
+    function callAppAction(ISuperApp app, bytes memory callData)
+        external
+        override // NOTE: modifiers are called in _callAppAction
+        returns (bytes memory returnedData)
     {
         return _callAppAction(msg.sender, app, callData);
     }
 
-    /**************************************************************************
+    /**
+     *
      * Contextual Call Proxies
-     *************************************************************************/
+     *
+     */
 
     function callAgreementWithContext(
         ISuperAgreement agreementClass,
@@ -696,7 +634,8 @@ contract Superfluid is
         bytes calldata userData,
         bytes calldata ctx
     )
-        external override
+        external
+        override
         requireValidCtx(ctx)
         isAgreement(agreementClass)
         returns (bytes memory newCtx, bytes memory returnedData)
@@ -724,16 +663,13 @@ contract Superfluid is
         }
     }
 
-    function callAppActionWithContext(
-        ISuperApp app,
-        bytes calldata callData,
-        bytes calldata ctx
-    )
-        external override
+    function callAppActionWithContext(ISuperApp app, bytes calldata callData, bytes calldata ctx)
+        external
+        override
         requireValidCtx(ctx)
         isAppActive(app)
         isValidAppAction(callData)
-        returns(bytes memory newCtx)
+        returns (bytes memory newCtx)
     {
         Context memory context = decodeCtx(ctx);
         if (context.appAddress != msg.sender) revert HOST_CALL_APP_ACTION_WITH_CTX_FROM_WRONG_ADDRESS();
@@ -755,209 +691,121 @@ contract Superfluid is
         }
     }
 
-    function decodeCtx(bytes memory ctx)
-        public pure override
-        returns (Context memory context)
-    {
+    function decodeCtx(bytes memory ctx) public pure override returns (Context memory context) {
         return _decodeCtx(ctx);
     }
 
-    function isCtxValid(bytes calldata ctx)
-        external view override
-        returns (bool)
-    {
+    function isCtxValid(bytes calldata ctx) external view override returns (bool) {
         return _isCtxValid(ctx);
     }
 
-    /**************************************************************************
-    * Batch call
-    **************************************************************************/
+    /**
+     *
+     * Batch call
+     *
+     */
 
-    function _batchCall(
-        address msgSender,
-        Operation[] calldata operations
-    )
-       internal
-    {
+    function _batchCall(address msgSender, Operation[] calldata operations) internal {
         for (uint256 i = 0; i < operations.length; ++i) {
             uint32 operationType = operations[i].operationType;
             if (operationType == BatchOperation.OPERATION_TYPE_ERC20_APPROVE) {
-                (address spender, uint256 amount) =
-                    abi.decode(operations[i].data, (address, uint256));
-                ISuperToken(operations[i].target).operationApprove(
-                    msgSender,
-                    spender,
-                    amount);
+                (address spender, uint256 amount) = abi.decode(operations[i].data, (address, uint256));
+                ISuperToken(operations[i].target).operationApprove(msgSender, spender, amount);
             } else if (operationType == BatchOperation.OPERATION_TYPE_ERC20_TRANSFER_FROM) {
                 (address sender, address receiver, uint256 amount) =
                     abi.decode(operations[i].data, (address, address, uint256));
-                ISuperToken(operations[i].target).operationTransferFrom(
-                    msgSender,
-                    sender,
-                    receiver,
-                    amount);
+                ISuperToken(operations[i].target).operationTransferFrom(msgSender, sender, receiver, amount);
             } else if (operationType == BatchOperation.OPERATION_TYPE_ERC777_SEND) {
                 (address recipient, uint256 amount, bytes memory userData) =
                     abi.decode(operations[i].data, (address, uint256, bytes));
-                ISuperToken(operations[i].target).operationSend(
-                    msgSender,
-                    recipient,
-                    amount,
-                    userData);
+                ISuperToken(operations[i].target).operationSend(msgSender, recipient, amount, userData);
             } else if (operationType == BatchOperation.OPERATION_TYPE_ERC20_INCREASE_ALLOWANCE) {
-                (address spender, uint256 addedValue) =
-                    abi.decode(operations[i].data, (address, uint256));
-                ISuperToken(operations[i].target).operationIncreaseAllowance(
-                    msgSender,
-                    spender,
-                    addedValue);
+                (address spender, uint256 addedValue) = abi.decode(operations[i].data, (address, uint256));
+                ISuperToken(operations[i].target).operationIncreaseAllowance(msgSender, spender, addedValue);
             } else if (operationType == BatchOperation.OPERATION_TYPE_ERC20_DECREASE_ALLOWANCE) {
-                (address spender, uint256 subtractedValue) =
-                    abi.decode(operations[i].data, (address, uint256));
-                ISuperToken(operations[i].target).operationDecreaseAllowance(
-                    msgSender,
-                    spender,
-                    subtractedValue);
+                (address spender, uint256 subtractedValue) = abi.decode(operations[i].data, (address, uint256));
+                ISuperToken(operations[i].target).operationDecreaseAllowance(msgSender, spender, subtractedValue);
             } else if (operationType == BatchOperation.OPERATION_TYPE_SUPERTOKEN_UPGRADE) {
-                ISuperToken(operations[i].target).operationUpgrade(
-                    msgSender,
-                    abi.decode(operations[i].data, (uint256))); // amount
+                ISuperToken(operations[i].target).operationUpgrade(msgSender, abi.decode(operations[i].data, (uint256))); // amount
             } else if (operationType == BatchOperation.OPERATION_TYPE_SUPERTOKEN_DOWNGRADE) {
                 ISuperToken(operations[i].target).operationDowngrade(
-                    msgSender,
-                    abi.decode(operations[i].data, (uint256))); // amount
+                    msgSender, abi.decode(operations[i].data, (uint256))
+                ); // amount
             } else if (operationType == BatchOperation.OPERATION_TYPE_SUPERFLUID_CALL_AGREEMENT) {
                 (bytes memory callData, bytes memory userData) = abi.decode(operations[i].data, (bytes, bytes));
-                _callAgreement(
-                    msgSender,
-                    ISuperAgreement(operations[i].target),
-                    callData,
-                    userData);
+                _callAgreement(msgSender, ISuperAgreement(operations[i].target), callData, userData);
             } else if (operationType == BatchOperation.OPERATION_TYPE_SUPERFLUID_CALL_APP_ACTION) {
-                _callAppAction(
-                    msgSender,
-                    ISuperApp(operations[i].target),
-                    operations[i].data);
+                _callAppAction(msgSender, ISuperApp(operations[i].target), operations[i].data);
             } else {
-               revert HOST_UNKNOWN_BATCH_CALL_OPERATION_TYPE();
+                revert HOST_UNKNOWN_BATCH_CALL_OPERATION_TYPE();
             }
         }
     }
 
     /// @dev ISuperfluid.batchCall implementation
-    function batchCall(
-       Operation[] calldata operations
-    )
-       external override
-    {
+    function batchCall(Operation[] calldata operations) external override {
         _batchCall(msg.sender, operations);
     }
 
     /// @dev ISuperfluid.forwardBatchCall implementation
-    function forwardBatchCall(Operation[] calldata operations)
-        external override
-    {
+    function forwardBatchCall(Operation[] calldata operations) external override {
         _batchCall(_getTransactionSigner(), operations);
     }
 
     /// @dev BaseRelayRecipient.isTrustedForwarder implementation
-    function isTrustedForwarder(address forwarder)
-        public view override
-        returns(bool)
-    {
+    function isTrustedForwarder(address forwarder) public view override returns (bool) {
         return _gov.getConfigAsUint256(
-            this,
-            ISuperfluidToken(address(0)),
-            SuperfluidGovernanceConfigs.getTrustedForwarderConfigKey(forwarder)
+            this, ISuperfluidToken(address(0)), SuperfluidGovernanceConfigs.getTrustedForwarderConfigKey(forwarder)
         ) != 0;
     }
 
     /// @dev IRelayRecipient.isTrustedForwarder implementation
-    function versionRecipient()
-        external override pure
-        returns (string memory)
-    {
+    function versionRecipient() external pure override returns (string memory) {
         return "v1";
     }
 
-    /**************************************************************************
-    * Internal
-    **************************************************************************/
+    /**
+     *
+     * Internal
+     *
+     */
 
-    function _jailApp(ISuperApp app, uint256 reason)
-        internal
-    {
+    function _jailApp(ISuperApp app, uint256 reason) internal {
         if ((_appManifests[app].configWord & SuperAppDefinitions.APP_JAIL_BIT) == 0) {
             _appManifests[app].configWord |= SuperAppDefinitions.APP_JAIL_BIT;
             emit Jail(app, reason);
         }
     }
 
-    function _updateContext(Context memory context)
-        private
-        returns (bytes memory ctx)
-    {
-        if (context.appCallbackLevel > MAX_APP_CALLBACK_LEVEL) {
+    function _updateContext(Context memory context) private returns (bytes memory ctx) {
+        if (context.appCallbackLevel > maxAppCallbackLevel) {
             revert APP_RULE(SuperAppDefinitions.APP_RULE_MAX_APP_LEVEL_REACHED);
         }
         uint256 callInfo = ContextDefinitions.encodeCallInfo(context.appCallbackLevel, context.callType);
         uint256 creditIO =
-            context.appCreditGranted.toUint128() |
-            (uint256(context.appCreditWantedDeprecated.toUint128()) << 128);
+            context.appCreditGranted.toUint128() | (uint256(context.appCreditWantedDeprecated.toUint128()) << 128);
         // NOTE: nested encoding done due to stack too deep error when decoding in _decodeCtx
         ctx = abi.encode(
-            abi.encode(
-                callInfo,
-                context.timestamp,
-                context.msgSender,
-                context.agreementSelector,
-                context.userData
-            ),
-            abi.encode(
-                creditIO,
-                context.appCreditUsed,
-                context.appAddress,
-                context.appCreditToken
-            )
+            abi.encode(callInfo, context.timestamp, context.msgSender, context.agreementSelector, context.userData),
+            abi.encode(creditIO, context.appCreditUsed, context.appAddress, context.appCreditToken)
         );
         _ctxStamp = keccak256(ctx);
     }
 
-    function _decodeCtx(bytes memory ctx)
-        private pure
-        returns (Context memory context)
-    {
+    function _decodeCtx(bytes memory ctx) private pure returns (Context memory context) {
         bytes memory ctx1;
         bytes memory ctx2;
         (ctx1, ctx2) = abi.decode(ctx, (bytes, bytes));
         {
             uint256 callInfo;
-            (
-                callInfo,
-                context.timestamp,
-                context.msgSender,
-                context.agreementSelector,
-                context.userData
-            ) = abi.decode(ctx1, (
-                uint256,
-                uint256,
-                address,
-                bytes4,
-                bytes));
+            (callInfo, context.timestamp, context.msgSender, context.agreementSelector, context.userData) =
+                abi.decode(ctx1, (uint256, uint256, address, bytes4, bytes));
             (context.appCallbackLevel, context.callType) = ContextDefinitions.decodeCallInfo(callInfo);
         }
         {
             uint256 creditIO;
-            (
-                creditIO,
-                context.appCreditUsed,
-                context.appAddress,
-                context.appCreditToken
-            ) = abi.decode(ctx2, (
-                uint256,
-                int256,
-                address,
-                ISuperfluidToken));
+            (creditIO, context.appCreditUsed, context.appAddress, context.appCreditToken) =
+                abi.decode(ctx2, (uint256, int256, address, ISuperfluidToken));
             context.appCreditGranted = creditIO & type(uint128).max;
             context.appCreditWantedDeprecated = creditIO >> 128;
         }
@@ -967,13 +815,9 @@ contract Superfluid is
         return ctx.length != 0 && keccak256(ctx) == _ctxStamp;
     }
 
-    function _callExternalWithReplacedCtx(
-        address target,
-        bytes memory callData,
-        bytes memory ctx
-    )
+    function _callExternalWithReplacedCtx(address target, bytes memory callData, bytes memory ctx)
         private
-        returns(bool success, bytes memory returnedData)
+        returns (bool success, bytes memory returnedData)
     {
         assert(target != address(0));
 
@@ -995,15 +839,9 @@ contract Superfluid is
         }
     }
 
-    function _callCallback(
-        ISuperApp app,
-        bool isStaticall,
-        bool isTermination,
-        bytes memory callData,
-        bytes memory ctx
-    )
+    function _callCallback(ISuperApp app, bool isStaticall, bool isTermination, bytes memory callData, bytes memory ctx)
         private
-        returns(bool success, bytes memory returnedData)
+        returns (bool success, bytes memory returnedData)
     {
         assert(address(app) != address(0));
 
@@ -1012,14 +850,14 @@ contract Superfluid is
         uint256 gasLeftBefore = gasleft();
         if (isStaticall) {
             /* solhint-disable-next-line avoid-low-level-calls*/
-            (success, returnedData) = address(app).staticcall{ gas: CALLBACK_GAS_LIMIT }(callData);
+            (success, returnedData) = address(app).staticcall{ gas: callbackGasLimit }(callData);
         } else {
             /* solhint-disable-next-line avoid-low-level-calls*/
-            (success, returnedData) = address(app).call{ gas: CALLBACK_GAS_LIMIT }(callData);
+            (success, returnedData) = address(app).call{ gas: callbackGasLimit }(callData);
         }
 
         if (!success) {
-            // "/ 63" is a magic to avoid out of gas attack. 
+            // "/ 63" is a magic to avoid out of gas attack.
             // See https://medium.com/@wighawag/ethereum-the-concept-of-gas-and-its-dangers-28d0eb809bb2.
             // A callback may use this to block the APP_RULE_NO_REVERT_ON_TERMINATION_CALLBACK jail rule.
             if (gasleft() > gasLeftBefore / 63) {
@@ -1041,7 +879,8 @@ contract Superfluid is
      * @dev Replace the placeholder ctx with the actual ctx
      */
     function _replacePlaceholderCtx(bytes memory data, bytes memory ctx)
-        internal pure
+        internal
+        pure
         returns (bytes memory dataWithCtx)
     {
         // 1.a ctx needs to be padded to align with 32 bytes boundary
@@ -1057,20 +896,25 @@ contract Superfluid is
             uint256 placeHolderCtxLength;
             // NOTE: len(data) is data.length + 32 https://docs.soliditylang.org/en/latest/abi-spec.html
             // solhint-disable-next-line no-inline-assembly
-            assembly { placeHolderCtxLength := mload(add(data, dataLen)) }
+            assembly {
+                placeHolderCtxLength := mload(add(data, dataLen))
+            }
             if (placeHolderCtxLength != 0) revert HOST_NON_ZERO_LENGTH_PLACEHOLDER_CTX();
         }
 
         // 1.b remove the placeholder ctx
         // solhint-disable-next-line no-inline-assembly
-        assembly { mstore(data, sub(dataLen, 0x20)) }
+        assembly {
+            mstore(data, sub(dataLen, 0x20))
+        }
 
         // 1.c pack data with the replacement ctx
         return abi.encodePacked(
             data,
             // bytes with padded length
             uint256(ctx.length),
-            ctx, new bytes(CallUtils.padLength32(ctx.length) - ctx.length) // ctx padding
+            ctx,
+            new bytes(CallUtils.padLength32(ctx.length) - ctx.length) // ctx padding
         );
         // NOTE: the alternative placeholderCtx is passing extra calldata to the agreements
         // agreements would use assembly code to read the ctx
@@ -1121,12 +965,14 @@ contract Superfluid is
 
     modifier isValidAppAction(bytes memory callData) {
         bytes4 actionSelector = CallUtils.parseSelector(callData);
-        if (actionSelector == ISuperApp.beforeAgreementCreated.selector ||
-            actionSelector == ISuperApp.afterAgreementCreated.selector ||
-            actionSelector == ISuperApp.beforeAgreementUpdated.selector ||
-            actionSelector == ISuperApp.afterAgreementUpdated.selector ||
-            actionSelector == ISuperApp.beforeAgreementTerminated.selector ||
-            actionSelector == ISuperApp.afterAgreementTerminated.selector) {
+        if (
+            actionSelector == ISuperApp.beforeAgreementCreated.selector
+                || actionSelector == ISuperApp.afterAgreementCreated.selector
+                || actionSelector == ISuperApp.beforeAgreementUpdated.selector
+                || actionSelector == ISuperApp.afterAgreementUpdated.selector
+                || actionSelector == ISuperApp.beforeAgreementTerminated.selector
+                || actionSelector == ISuperApp.afterAgreementTerminated.selector
+        ) {
             revert HOST_AGREEMENT_CALLBACK_IS_NOT_ACTION();
         }
         _;

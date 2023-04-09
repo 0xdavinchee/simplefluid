@@ -2,6 +2,11 @@
 pragma solidity 0.8.19;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { IBeacon } from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
+import { BeaconProxy } from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import { SuperfluidERC1967Proxy } from "../upgradability/SuperfluidERC1967Proxy.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {
     ISuperTokenFactory,
     ISuperToken,
@@ -9,40 +14,26 @@ import {
     ERC20WithTokenInfo
 } from "../interfaces/superfluid/ISuperTokenFactory.sol";
 import { ISuperfluid } from "../interfaces/superfluid/ISuperfluid.sol";
-import { UUPSProxy } from "../upgradability/UUPSProxy.sol";
-import { UUPSProxiable } from "../upgradability/UUPSProxiable.sol";
 import { SuperToken } from "../superfluid/SuperToken.sol";
-import { FullUpgradableSuperTokenProxy } from "./FullUpgradableSuperTokenProxy.sol";
 import { ConstantOutflowNFT } from "../superfluid/ConstantOutflowNFT.sol";
 import { ConstantInflowNFT } from "../superfluid/ConstantInflowNFT.sol";
 
-abstract contract SuperTokenFactoryBase is
-    UUPSProxiable,
-    ISuperTokenFactory
-{
+/// @title SuperTokenFactory
+/// @author Superfluid | Modified by 0xdavinchee
+contract SuperTokenFactory is Initializable, UUPSUpgradeable, ISuperTokenFactory {
     struct InitializeData {
         address underlyingToken;
         address superToken;
     }
-
-    /**************************************************************************
-    * Immutable Variables
-    **************************************************************************/
-
-    // solhint-disable-next-line var-name-mixedcase
-    ISuperToken immutable public _SUPER_TOKEN_LOGIC;
-
-    ISuperfluid immutable internal _host;
-
-    /**************************************************************************
-    * Storage Variables
-    **************************************************************************/
 
     /* WARNING: NEVER RE-ORDER VARIABLES! Including the base contracts.
         Always double-check that new
         variables are added APPEND-ONLY. Re-ordering variables can
         permanently BREAK the deployed proxy contract. */
 
+    IBeacon internal _superTokenBeacon;
+
+    ISuperfluid internal _host;
     // @dev This is the old SuperToken logic contract that is no longer used
     // It is kept here for backwards compatibility due to the fact that we cannot
     // change the storage layout of the contract
@@ -60,77 +51,81 @@ abstract contract SuperTokenFactoryBase is
 
     error SUPER_TOKEN_FACTORY_ONLY_GOVERNANCE_OWNER();
 
-    constructor(
-        ISuperfluid host,
-        ISuperToken superTokenLogic
-    ) {
-        _host = host;
+    /// @inheritdoc ISuperTokenFactory
+    function getHost() external view override(ISuperTokenFactory) returns (address host) {
+        return address(_host);
+    }
+
+    /**
+     *
+     * UUPSUpgradeable
+     *
+     */
+    function getSuperTokenBeacon() external view returns (address) {
+        return address(_superTokenBeacon);
+    }
+
+    /// @inheritdoc ISuperTokenFactory
+    function initialize(ISuperfluid host_, IBeacon superTokenBeacon_)
+        external
+        initializer // OpenZeppelin Initializable
+    // solhint-disable-next-line no-empty-blocks
+    {
+        _host = host_;
 
         // SuperToken logic is now deployed prior to new factory logic deployment
         // and passed in as a parameter to SuperTokenFactory constructor
-        _SUPER_TOKEN_LOGIC = superTokenLogic;
+        _superTokenBeacon = superTokenBeacon_;
 
-        UUPSProxiable(address(_SUPER_TOKEN_LOGIC)).castrate();
+        // UUPSProxiable(address(superTokenBeacon_)).castrate();
 
         // emit SuperTokenLogicCreated event
         // note that creation here means the setting of the super token logic contract
         // as the canonical super token logic for the Superfluid framework and not the
         // actual contract creation
-        emit SuperTokenLogicCreated(_SUPER_TOKEN_LOGIC);
+        emit SuperTokenLogicCreated(ISuperToken(superTokenBeacon_.implementation()));
     }
 
-    /// @inheritdoc ISuperTokenFactory
-    function getHost()
-       external view
-       override(ISuperTokenFactory)
-       returns(address host)
-    {
-       return address(_host);
-    }
-
-    /**************************************************************************
-    * UUPSProxiable
-    **************************************************************************/
-    /// @inheritdoc ISuperTokenFactory
-    function initialize()
-        external
+    function _authorizeUpgrade(address)
+        // newImplementation
+        internal
+        view
         override
-        initializer // OpenZeppelin Initializable
-    // solhint-disable-next-line no-empty-blocks
     {
-
+        if (msg.sender != address(_host)) revert SUPER_TOKEN_FACTORY_ONLY_HOST();
     }
 
     function proxiableUUID() public pure override returns (bytes32) {
         return keccak256("org.superfluid-finance.contracts.SuperTokenFactory.implementation");
     }
 
-    /// @notice Updates the logic contract for the SuperTokenFactory
-    /// @dev This function updates the logic contract for the SuperTokenFactory
-    /// @param newAddress the new address of the SuperTokenFactory logic contract
-    function updateCode(address newAddress) external override {
-        if (msg.sender != address(_host)) {
-            revert SUPER_TOKEN_FACTORY_ONLY_HOST();
-        }
-        _updateCodeAddress(newAddress);
+    // @note this is the pattern of using UUPSProxiable, we are removing this and using a new pattern
+    // /// @notice Updates the logic contract for the SuperTokenFactory
+    // /// @dev This function updates the logic contract for the SuperTokenFactory
+    // /// @param newSuperTokenFactoryLogic_ the new address of the SuperTokenFactory logic contract
+    // /// @param newSuperTokenBeacon_ the new address of the SuperToken logic contract
+    // function updateCode(address newSuperTokenFactoryLogic_, IBeacon newSuperTokenBeacon_) external {
+    //     if (msg.sender != address(_host)) {
+    //         revert SUPER_TOKEN_FACTORY_ONLY_HOST();
+    //     }
+    //     // @note newSuperTokenBeacon_ should basically never change over time
+    //     bytes memory data = abi.encodeWithSelector(ISuperTokenFactory.initialize.selector, _host,
+    // newSuperTokenBeacon_);
+    //     _upgradeToAndCallUUPS(newSuperTokenFactoryLogic_, data, true);
+    // }
+
+    /**
+     *
+     * ISuperTokenFactory
+     *
+     */
+    /// @inheritdoc ISuperTokenFactory
+    function getSuperTokenLogic() external view override returns (ISuperToken) {
+        return ISuperToken(_superTokenBeacon.implementation());
     }
 
-    /**************************************************************************
-    * ISuperTokenFactory
-    **************************************************************************/
     /// @inheritdoc ISuperTokenFactory
-    function getSuperTokenLogic()
-        external view override
-        returns (ISuperToken)
-    {
-        return _SUPER_TOKEN_LOGIC;
-    }
-
-    /// @inheritdoc ISuperTokenFactory
-    function createCanonicalERC20Wrapper(ERC20WithTokenInfo _underlyingToken)
-        external
-        returns (ISuperToken)
-    {
+    function createCanonicalERC20Wrapper(ERC20WithTokenInfo _underlyingToken) external returns (ISuperToken) {
         // we use this to check if we have initialized the _canonicalWrapperSuperTokens mapping
         // @note we must set this during initialization
         if (_canonicalWrapperSuperTokens[address(0)] == address(0)) {
@@ -138,9 +133,7 @@ abstract contract SuperTokenFactoryBase is
         }
 
         address underlyingTokenAddress = address(_underlyingToken);
-        address canonicalSuperTokenAddress = _canonicalWrapperSuperTokens[
-                underlyingTokenAddress
-            ];
+        address canonicalSuperTokenAddress = _canonicalWrapperSuperTokens[underlyingTokenAddress];
 
         // if the canonical super token address exists, revert with custom error
         if (canonicalSuperTokenAddress != address(0)) {
@@ -149,15 +142,11 @@ abstract contract SuperTokenFactoryBase is
 
         // use create2 to deterministically create the proxy contract for the wrapper super token
         bytes32 salt = keccak256(abi.encode(underlyingTokenAddress));
-        UUPSProxy proxy = new UUPSProxy{ salt: salt }();
+        bytes memory data;
+        BeaconProxy proxy = new BeaconProxy{ salt: salt }(_superTokenBeacon.implementation(), data);
 
         // NOTE: address(proxy) is equivalent to address(superToken)
-        _canonicalWrapperSuperTokens[underlyingTokenAddress] = address(
-            proxy
-        );
-
-        // set the implementation/logic contract address for the newly deployed proxy
-        proxy.initializeProxy(address(_SUPER_TOKEN_LOGIC));
+        _canonicalWrapperSuperTokens[underlyingTokenAddress] = address(proxy);
 
         // cast it as the same type as the logic contract
         ISuperToken superToken = ISuperToken(address(proxy));
@@ -167,7 +156,7 @@ abstract contract SuperTokenFactoryBase is
         string memory underlyingName = _underlyingToken.name();
         string memory underlyingSymbol = _underlyingToken.symbol();
         // initialize the contract (proxy constructor)
-        superToken.initialize(
+        superToken.initializeProxy(
             _underlyingToken,
             underlyingDecimals,
             string.concat("Super ", underlyingName),
@@ -186,34 +175,25 @@ abstract contract SuperTokenFactoryBase is
         Upgradability upgradability,
         string calldata name,
         string calldata symbol
-    )
-        public override
-        returns (ISuperToken superToken)
-    {
+    ) public override returns (ISuperToken superToken) {
         if (address(underlyingToken) == address(0)) {
             revert SUPER_TOKEN_FACTORY_ZERO_ADDRESS();
         }
 
+        bytes memory data;
         if (upgradability == Upgradability.NON_UPGRADABLE) {
             revert SUPER_TOKEN_FACTORY_NON_UPGRADEABLE_IS_DEPRECATED();
         } else if (upgradability == Upgradability.SEMI_UPGRADABLE) {
-            UUPSProxy proxy = new UUPSProxy();
+            SuperfluidERC1967Proxy proxy = new SuperfluidERC1967Proxy(_superTokenBeacon.implementation(), data);
             // initialize the wrapper
-            proxy.initializeProxy(address(_SUPER_TOKEN_LOGIC));
             superToken = ISuperToken(address(proxy));
-        } else /* if (type == Upgradability.FULL_UPGRADABLE) */ {
-            FullUpgradableSuperTokenProxy proxy = new FullUpgradableSuperTokenProxy();
-            proxy.initialize();
+        } /* if (type == Upgradability.FULL_UPGRADABLE) */ else {
+            BeaconProxy proxy = new BeaconProxy(address(_superTokenBeacon), data);
             superToken = ISuperToken(address(proxy));
         }
 
         // initialize the token
-        superToken.initialize(
-            underlyingToken,
-            underlyingDecimals,
-            name,
-            symbol
-        );
+        superToken.initializeProxy(underlyingToken, underlyingDecimals, name, symbol);
 
         emit SuperTokenCreated(superToken);
     }
@@ -224,30 +204,13 @@ abstract contract SuperTokenFactoryBase is
         Upgradability upgradability,
         string calldata name,
         string calldata symbol
-    )
-        external override
-        returns (ISuperToken superToken)
-    {
-        return createERC20Wrapper(
-            underlyingToken,
-            underlyingToken.decimals(),
-            upgradability,
-            name,
-            symbol
-        );
+    ) external override returns (ISuperToken superToken) {
+        return createERC20Wrapper(underlyingToken, underlyingToken.decimals(), upgradability, name, symbol);
     }
 
     /// @inheritdoc ISuperTokenFactory
-    function initializeCustomSuperToken(
-        address customSuperTokenProxy
-    )
-        external override
-    {
-        // odd solidity stuff..
-        // NOTE payable necessary because UUPSProxy has a payable fallback function
-        address payable a = payable(address(uint160(customSuperTokenProxy)));
-        UUPSProxy(a).initializeProxy(address(_SUPER_TOKEN_LOGIC));
-
+    function initializeCustomSuperToken(address customSuperTokenProxy) external override {
+        // TODO think about how to be friendler to custom super tokens
         emit CustomSuperTokenCreated(ISuperToken(customSuperTokenProxy));
     }
 
@@ -257,15 +220,13 @@ abstract contract SuperTokenFactoryBase is
         view
         returns (address superTokenAddress, bool isDeployed)
     {
-        address existingAddress = _canonicalWrapperSuperTokens[
-            _underlyingToken
-        ];
+        address existingAddress = _canonicalWrapperSuperTokens[_underlyingToken];
 
         if (existingAddress != address(0)) {
             superTokenAddress = existingAddress;
             isDeployed = true;
         } else {
-            bytes memory bytecode = type(UUPSProxy).creationCode;
+            bytes memory bytecode = type(BeaconProxy).creationCode;
             superTokenAddress = address(
                 uint160(
                     uint256(
@@ -290,17 +251,13 @@ abstract contract SuperTokenFactoryBase is
         view
         returns (address superTokenAddress)
     {
-        superTokenAddress = _canonicalWrapperSuperTokens[
-            _underlyingTokenAddress
-        ];
+        superTokenAddress = _canonicalWrapperSuperTokens[_underlyingTokenAddress];
     }
 
     /// @notice Initializes list of canonical wrapper super tokens.
     /// @dev Note that this should also be kind of a throwaway function which will be executed only once.
     /// @param _data an array of canonical wrappper super tokens to be set
-    function initializeCanonicalWrapperSuperTokens(
-        InitializeData[] calldata _data
-    ) external virtual  {
+    function initializeCanonicalWrapperSuperTokens(InitializeData[] calldata _data) external virtual {
         Ownable gov = Ownable(address(_host.getGovernance()));
         if (msg.sender != gov.owner()) revert SUPER_TOKEN_FACTORY_ONLY_GOVERNANCE_OWNER();
 
@@ -312,25 +269,7 @@ abstract contract SuperTokenFactoryBase is
 
         // initialize mapping
         for (uint256 i = 0; i < _data.length; i++) {
-            _canonicalWrapperSuperTokens[_data[i].underlyingToken] = _data[i]
-                .superToken;
+            _canonicalWrapperSuperTokens[_data[i].underlyingToken] = _data[i].superToken;
         }
-    }
-}
-
-contract SuperTokenFactory is SuperTokenFactoryBase
-{
-    /* WARNING: NEVER RE-ORDER VARIABLES! Including the base contracts.
-        Always double-check that new
-        variables are added APPEND-ONLY. Re-ordering variables can
-        permanently BREAK the deployed proxy contract. */
-
-    constructor(
-        ISuperfluid host,
-        ISuperToken superTokenLogic
-    )
-        SuperTokenFactoryBase(host, superTokenLogic)
-        // solhint-disable-next-line no-empty-blocks
-    {
     }
 }

@@ -2,30 +2,18 @@
 pragma solidity 0.8.19;
 
 import { ISuperToken } from "../interfaces/superfluid/ISuperToken.sol";
-import {
-    IConstantFlowAgreementV1
-} from "../interfaces/agreements/IConstantFlowAgreementV1.sol";
-import {
-    IConstantOutflowNFT
-} from "../interfaces/superfluid/IConstantOutflowNFT.sol";
-import {
-    IConstantInflowNFT
-} from "../interfaces/superfluid/IConstantInflowNFT.sol";
+import { IConstantFlowAgreementV1 } from "../interfaces/agreements/IConstantFlowAgreementV1.sol";
+import { IConstantOutflowNFT } from "../interfaces/superfluid/IConstantOutflowNFT.sol";
+import { IConstantInflowNFT } from "../interfaces/superfluid/IConstantInflowNFT.sol";
 import { FlowNFTBase, IFlowNFTBase } from "./FlowNFTBase.sol";
 
 /// @title ConstantInflowNFT Contract (CIF NFT)
-/// @author Superfluid
+/// @author Superfluid | Modified by 0xdavinchee
 /// @notice The ConstantInflowNFT contract to be minted to the flow sender on flow creation.
 /// @dev This contract does not hold any storage, but references the ConstantOutflowNFT contract storage.
 contract ConstantInflowNFT is FlowNFTBase, IConstantInflowNFT {
-    // solhint-disable-next-line no-empty-blocks
-    constructor(IConstantFlowAgreementV1 _cfaV1) FlowNFTBase(_cfaV1) {}
-
     function proxiableUUID() public pure override returns (bytes32) {
-        return
-            keccak256(
-                "org.superfluid-finance.contracts.ConstantInflowNFT.implementation"
-            );
+        return keccak256("org.superfluid-finance.contracts.ConstantInflowNFT.implementation");
     }
 
     /// @notice The mint function emits the "mint" `Transfer` event.
@@ -34,10 +22,7 @@ contract ConstantInflowNFT is FlowNFTBase, IConstantInflowNFT {
     /// Only callable by ConstantOutflowNFT
     /// @param to the receiver of the inflow nft and desired flow receiver
     /// @param newTokenId the new token id
-    function mint(
-        address to,
-        uint256 newTokenId
-    ) external onlyConstantOutflowNFT {
+    function mint(address to, uint256 newTokenId) external onlyConstantOutflowNFT {
         _mint(to, newTokenId);
     }
 
@@ -50,23 +35,18 @@ contract ConstantInflowNFT is FlowNFTBase, IConstantInflowNFT {
         _burn(tokenId);
     }
 
-    function flowDataByTokenId(
-        uint256 tokenId
-    )
+    function flowDataByTokenId(uint256 tokenId)
         public
         view
         override(FlowNFTBase, IFlowNFTBase)
         returns (FlowNFTData memory flowData)
     {
-        IConstantOutflowNFT constantOutflowNFT = superTokenLogic
-            .CONSTANT_OUTFLOW_NFT_PROXY();
+        IConstantOutflowNFT constantOutflowNFT = superTokenLogic.constantOutflowNFT();
         flowData = constantOutflowNFT.flowDataByTokenId(tokenId);
     }
 
     /// @inheritdoc FlowNFTBase
-    function _ownerOf(
-        uint256 tokenId
-    ) internal view virtual override returns (address) {
+    function _ownerOf(uint256 tokenId) internal view virtual override returns (address) {
         FlowNFTData memory flowData = flowDataByTokenId(tokenId);
         return flowData.flowReceiver;
     }
@@ -94,9 +74,7 @@ contract ConstantInflowNFT is FlowNFTBase, IConstantInflowNFT {
     }
 
     modifier onlyConstantOutflowNFT() {
-        if (
-            msg.sender != address(superTokenLogic.CONSTANT_OUTFLOW_NFT_PROXY())
-        ) {
+        if (msg.sender != address(superTokenLogic.constantOutflowNFT())) {
             revert CIF_NFT_ONLY_CONSTANT_OUTFLOW();
         }
         _;

@@ -24,7 +24,7 @@ import { SafeGasLibrary } from "../libs/SafeGasLibrary.sol";
 
 /**
  * @title ConstantFlowAgreementV1 contract
- * @author Superfluid
+ * @author Superfluid | Modified by 0xdavinchee
  * @dev Please read IConstantFlowAgreementV1 for implementation notes.
  * @dev For more technical notes, please visit protocol-monorepo wiki area.
  * 
@@ -75,9 +75,6 @@ contract ConstantFlowAgreementV1 is
     bytes32 private constant SUPERTOKEN_MINIMUM_DEPOSIT_KEY =
         keccak256("org.superfluid-finance.superfluid.superTokenMinimumDeposit");
 
-    // @note this variable is deprecated and no longer used
-    IConstantFlowAgreementHook public immutable constantFlowAgreementHook;
-
     // An arbitrarily chosen safety limit for the external calls to protect against out-of-gas grief exploits.
     // solhint-disable-next-line var-name-mixedcase
     uint64 constant public CFA_HOOK_GAS_LIMIT = 250000;
@@ -104,14 +101,6 @@ contract ConstantFlowAgreementV1 is
     struct FlowOperatorData {
         uint8 permissions;
         int96 flowRateAllowance;
-    }
-
-    // solhint-disable-next-line no-empty-blocks
-    constructor(
-        ISuperfluid host,
-        IConstantFlowAgreementHook _hookAddress
-    ) AgreementBase(address(host)) {
-        constantFlowAgreementHook = _hookAddress;
     }
 
     /**************************************************************************
@@ -448,7 +437,7 @@ contract ConstantFlowAgreementV1 is
     
     /**
      * @notice Checks whether or not the NFT hook can be called.
-     * @dev A staticcall, so `CONSTANT_OUTFLOW_NFT_PROXY` must be a view otherwise the assumption is that it reverts
+     * @dev A staticcall, so `constantOutflowNFT` must be a view otherwise the assumption is that it reverts
      * @param token the super token that is being streamed
      * @return constantOutflowNFTAddress the address returned by low level call
      */
@@ -457,12 +446,12 @@ contract ConstantFlowAgreementV1 is
     ) internal view returns (address constantOutflowNFTAddress) {
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory data) = address(token).staticcall(
-            abi.encodeWithSelector(ISuperToken.CONSTANT_OUTFLOW_NFT_PROXY.selector)
+            abi.encodeWithSelector(ISuperToken.constantOutflowNFT.selector)
         );
 
         if (success) {
             // @note We are aware this may revert if a Custom SuperToken's
-            // CONSTANT_OUTFLOW_NFT_PROXY does not return data that can be
+            // constantOutflowNFT does not return data that can be
             // decoded to an address. This would mean it was intentionally
             // done by the creator of the Custom SuperToken logic and is
             // fully expected to revert in that case as the author desired.

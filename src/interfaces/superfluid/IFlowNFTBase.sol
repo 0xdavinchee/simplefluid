@@ -5,6 +5,7 @@ import {
     IERC721Metadata
 } from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import { ISuperToken } from "./ISuperToken.sol";
+import { IConstantFlowAgreementV1 } from "../agreements/IConstantFlowAgreementV1.sol";
 
 interface IFlowNFTBase is IERC721Metadata {
     // FlowNFTData struct storage packing:
@@ -77,7 +78,8 @@ interface IFlowNFTBase is IERC721Metadata {
      *************************************************************************/
 
     function initialize(
-        ISuperToken superToken,
+        ISuperToken superTokenLogic,
+        IConstantFlowAgreementV1 cfaV1,
         string memory nftName,
         string memory nftSymbol
     ) external; // initializer;

@@ -36,9 +36,18 @@ interface ISuperToken is ISuperfluidToken, TokenInfo, IERC20, IERC777 {
     error SUPER_TOKEN_NFT_PROXY_ADDRESS_CHANGED();               // 0x6bef249d
 
     /**
-     * @dev Initialize the contract
+     * @dev Initialize the logic contract
      */
-    function initialize(
+    function initializeLogic(
+        ISuperfluid host_,
+        IConstantOutflowNFT constantOutflowNFT_,
+        IConstantInflowNFT constantInflowNFT_
+    ) external;
+
+    /**
+     * @dev Initialize each new proxy contract
+     */
+    function initializeProxy(
         IERC20 underlyingToken,
         uint8 underlyingDecimals,
         string calldata n,
@@ -48,8 +57,8 @@ interface ISuperToken is ISuperfluidToken, TokenInfo, IERC20, IERC777 {
     /**************************************************************************
     * Immutable variables
     *************************************************************************/
-    function CONSTANT_OUTFLOW_NFT_PROXY() external view returns (IConstantOutflowNFT);
-    function CONSTANT_INFLOW_NFT_PROXY() external view returns (IConstantInflowNFT);
+    function constantOutflowNFT() external view returns (IConstantOutflowNFT);
+    function constantInflowNFT() external view returns (IConstantInflowNFT);
 
     /**************************************************************************
     * TokenInfo & ERC777

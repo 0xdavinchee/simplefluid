@@ -3,12 +3,12 @@ src = 'src'
 out = 'out'
 libs = ['lib', 'node_modules']
 remappings = [
-'ds-test/=lib/forge-std/lib/ds-test/src/',
-'forge-std/=lib/forge-std/src/',
-'hardhat/=node_modules/hardhat/',
-'solady/=lib/solady/src/',
-'solmate/=lib/solmate/src/',
-'@openzeppelin/=node_modules/@openzeppelin/'
+    'ds-test/=lib/forge-std/lib/ds-test/src/',
+    'forge-std/=lib/forge-std/src/',
+    'hardhat/=node_modules/hardhat/',
+    'solady/=lib/solady/src/',
+    'solmate/=lib/solmate/src/',
+    '@openzeppelin/=node_modules/@openzeppelin/'
 ]
 
 [invariant]
@@ -16,5 +16,6 @@ runs = 1000
 
 [fmt]
 bracket_spacing = true
+line_length = 120
 number_underscore = 'thousands'
 wrap_comments = true

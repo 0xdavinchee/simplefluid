@@ -15,6 +15,7 @@ import {
     SuperfluidGovernanceConfigs
 } from "./Definitions.sol";
 import { TokenInfo } from "../tokens/TokenInfo.sol";
+import { IBeacon } from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC777 } from "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 
@@ -71,6 +72,10 @@ interface ISuperfluid {
      * > The Oracle: We can never see past the choices we don't understand.
      * >       - The Oracle and Neo conversing about the future of Trinity and the effects of Neo's choices
      *************************************************************************/
+    
+    function initialize(ISuperfluidGovernance gov_, bool nonUpgradeableDeployment_, bool appWhitelistingEnabled_)
+        external;
+
 
     function getNow() external view returns (uint256);
 
@@ -193,7 +198,7 @@ interface ISuperfluid {
      * @dev Update super token factory
      * @param newFactory New factory logic
      */
-    function updateSuperTokenFactory(ISuperTokenFactory newFactory) external;
+    function updateSuperTokenFactory(ISuperTokenFactory newFactory, IBeacon newSuperTokenBeacon) external;
     /**
      * @dev SuperToken factory updated event
      * @param newFactory Address of the new factory

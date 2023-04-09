@@ -24,7 +24,6 @@ import {
 import { TestGovernance } from "./TestGovernance.sol";
 import { TestResolver } from "./TestResolver.sol";
 import { TestToken } from "./TestToken.sol";
-import { UUPSProxy } from "../upgradability/UUPSProxy.sol";
 
 contract SuperTokenDeployer {
 
@@ -99,7 +98,7 @@ contract SuperTokenDeployer {
         SETHProxy sethProxy = new SETHProxy();
         nativeAssetSuperToken = ISETH(address(sethProxy));
         superTokenFactory.initializeCustomSuperToken(address(sethProxy));
-        nativeAssetSuperToken.initialize(
+        nativeAssetSuperToken.initializeProxy(
             IERC20(address(0)),
             18,
             _name,

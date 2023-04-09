@@ -1,40 +1,34 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity >=0.8.4;
 
-import { UUPSProxiable } from "../upgradability/UUPSProxiable.sol";
-import {
-    IERC165,
-    IERC721,
-    IERC721Metadata
-} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { IERC165, IERC721, IERC721Metadata } from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { IFlowNFTBase } from "../interfaces/superfluid/IFlowNFTBase.sol";
 import { ISuperfluid } from "../interfaces/superfluid/ISuperfluid.sol";
 import { ISuperToken } from "../interfaces/superfluid/ISuperToken.sol";
-import {
-    ISuperTokenFactory
-} from "../interfaces/superfluid/ISuperTokenFactory.sol";
-import {
-    IConstantFlowAgreementV1
-} from "../interfaces/agreements/IConstantFlowAgreementV1.sol";
+import { ISuperTokenFactory } from "../interfaces/superfluid/ISuperTokenFactory.sol";
+import { IConstantFlowAgreementV1 } from "../interfaces/agreements/IConstantFlowAgreementV1.sol";
 
 /// @title FlowNFTBase abstract contract
-/// @author Superfluid
+/// @author Superfluid | Modified by 0xdavinchee
 /// @notice The abstract contract to be inherited by the Flow NFTs.
 /// @dev This contract inherits from IFlowNFTBase which inherits from
 /// IERC721Metadata and holds shared storage and functions for the two NFT contracts.
 /// This contract is upgradeable and it inherits from our own ad-hoc UUPSProxiable contract which allows.
 /// NOTE: the storage gap allows us to add an additional 16 storage variables to this contract without breaking child
 /// COFNFT or CIFNFT storage.
-abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
+abstract contract FlowNFTBase is Initializable, UUPSUpgradeable, IFlowNFTBase {
     using Strings for uint256;
 
-    string public constant BASE_URI =
-        "https://nft.superfluid.finance/cfa/v1/getmeta";
+    string public constant BASE_URI = "https://nft.superfluid.finance/cfa/v1/getmeta";
 
-    /**************************************************************************
+    /**
+     *
      * Storage variables
-     *************************************************************************/
+     *
+     */
     /// NOTE: The storage variables in this contract MUST NOT:
     /// - change the ordering of the existing variables
     /// - change any of the variable types
@@ -47,8 +41,7 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     /// @notice ConstantFlowAgreementV1 contract address
     /// @dev This is the address of the CFAv1 contract cached so we don't have to
     /// do an external call for every flow created.
-    // solhint-disable-next-line var-name-mixedcase
-    IConstantFlowAgreementV1 public immutable CONSTANT_FLOW_AGREEMENT_V1;
+    IConstantFlowAgreementV1 public constantFlowAgreementV1;
 
     /// @notice The canonical SuperToken logic contract
     /// @dev This is the address of the canonical SuperToken contract shared by all SuperToken proxies
@@ -90,40 +83,43 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     uint256 private _reserve20;
     uint256 internal _reserve21;
 
-    constructor(IConstantFlowAgreementV1 cfaV1Contract) {
-        CONSTANT_FLOW_AGREEMENT_V1 = cfaV1Contract;
-    }
-
     function initialize(
-        ISuperToken canonicalSuperTokenLogic,
-        string memory nftName,
-        string memory nftSymbol
+        ISuperToken superTokenLogic_,
+        IConstantFlowAgreementV1 cfaV1_,
+        string memory nftName_,
+        string memory nftSymbol_
     )
         external
         initializer // OpenZeppelin Initializable
     {
-        superTokenLogic = canonicalSuperTokenLogic;
-        _name = nftName;
-        _symbol = nftSymbol;
+        superTokenLogic = superTokenLogic_;
+        constantFlowAgreementV1 = cfaV1_;
+        _name = nftName_;
+        _symbol = nftSymbol_;
     }
 
-    function updateCode(address newAddress) external override {
+    function _authorizeUpgrade(address newImplementation) internal view override {
         ISuperfluid host = ISuperfluid(superTokenLogic.getHost());
         if (msg.sender != address(host)) {
             revert CFA_NFT_ONLY_HOST();
         }
-
-        UUPSProxiable._updateCodeAddress(newAddress);
-
-        // get canonical logic address via host => supertokenfactory logic.
-        ISuperToken canonicalSuperTokenLogic = ISuperTokenFactory(
-            host.getSuperTokenFactoryLogic()
-        ).getSuperTokenLogic();
-
-        // @note we must update the SuperTokenLogic contract first and
-        // set it as the canonical one in the framework
-        superTokenLogic = canonicalSuperTokenLogic;
     }
+
+    // function updateCode(address newAddress) external override {
+    //     ISuperfluid host = ISuperfluid(superTokenLogic.getHost());
+    //     if (msg.sender != address(host)) {
+    //         revert CFA_NFT_ONLY_HOST();
+    //     }
+
+    //     // get canonical logic address via host => supertokenfactory logic.
+    //     ISuperToken canonicalSuperTokenLogic = ISuperTokenFactory(
+    //         host.getSuperTokenFactoryLogic()
+    //     ).getSuperTokenLogic();
+
+    //     // @note we must update the SuperTokenLogic contract first and
+    //     // set it as the canonical one in the framework
+    //     superTokenLogic = canonicalSuperTokenLogic;
+    // }
 
     /// @notice Emits the MetadataUpdate event with `tokenId` as the argument.
     /// @dev Callable by anyone.
@@ -137,19 +133,14 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     /// @param interfaceId the XOR of all function selectors in the interface
     /// @return boolean true if the interface is supported
     /// @inheritdoc IERC165
-    function supportsInterface(
-        bytes4 interfaceId
-    ) external pure virtual override returns (bool) {
-        return
-            interfaceId == 0x01ffc9a7 || // ERC165 Interface ID for ERC165
-            interfaceId == 0x80ac58cd || // ERC165 Interface ID for ERC721
-            interfaceId == 0x5b5e139f; // ERC165 Interface ID for ERC721Metadata
+    function supportsInterface(bytes4 interfaceId) external pure virtual override returns (bool) {
+        return interfaceId == 0x01ffc9a7 // ERC165 Interface ID for ERC165
+            || interfaceId == 0x80ac58cd // ERC165 Interface ID for ERC721
+            || interfaceId == 0x5b5e139f; // ERC165 Interface ID for ERC721Metadata
     }
 
     /// @inheritdoc IERC721
-    function ownerOf(
-        uint256 tokenId
-    ) public view virtual override returns (address) {
+    function ownerOf(uint256 tokenId) public view virtual override returns (address) {
         address owner = _ownerOf(tokenId);
         if (owner == address(0)) {
             revert CFA_NFT_INVALID_TOKEN_ID();
@@ -183,9 +174,7 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     /// @notice This returns the Uniform Resource Identifier (URI), where the metadata for the NFT lives.
     /// @dev Returns the Uniform Resource Identifier (URI) for `tokenId` token.
     /// @return the token URI
-    function tokenURI(
-        uint256 tokenId
-    ) external view virtual override returns (string memory) {
+    function tokenURI(uint256 tokenId) external view virtual override returns (string memory) {
         FlowNFTData memory flowData = flowDataByTokenId(tokenId);
 
         ISuperToken _superToken = ISuperToken(flowData.superToken);
@@ -194,41 +183,30 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
 
         string memory superTokenSymbol = _superToken.symbol();
 
-        (, int96 flowRate, , ) = CONSTANT_FLOW_AGREEMENT_V1
-            .getFlow(_superToken, flowData.flowSender, flowData.flowReceiver);
+        (, int96 flowRate,,) = constantFlowAgreementV1.getFlow(_superToken, flowData.flowSender, flowData.flowReceiver);
 
-        return
-            string(
-                abi.encodePacked(
-                    BASE_URI,
-                    "?chain_id=",
-                    block.chainid.toString(),
-                    "&token_address=",
-                    Strings.toHexString(
-                        uint256(uint160(superTokenAddress)),
-                        20
-                    ),
-                    "&token_symbol=",
-                    superTokenSymbol,
-                    "&token_decimals=",
-                    uint256(18).toString(),
-                    "&sender=",
-                    Strings.toHexString(
-                        uint256(uint160(flowData.flowSender)),
-                        20
-                    ),
-                    "&receiver=",
-                    Strings.toHexString(
-                        uint256(uint160(flowData.flowReceiver)),
-                        20
-                    ),
-                    "&flowRate=",
-                    uint256(uint96(flowRate)).toString(),
-                    "&start_date=",
-                    // @note upcasting is safe
-                    uint256(flowData.flowStartDate).toString()
-                )
-            );
+        return string(
+            abi.encodePacked(
+                BASE_URI,
+                "?chain_id=",
+                block.chainid.toString(),
+                "&token_address=",
+                Strings.toHexString(uint256(uint160(superTokenAddress)), 20),
+                "&token_symbol=",
+                superTokenSymbol,
+                "&token_decimals=",
+                uint256(18).toString(),
+                "&sender=",
+                Strings.toHexString(uint256(uint160(flowData.flowSender)), 20),
+                "&receiver=",
+                Strings.toHexString(uint256(uint160(flowData.flowReceiver)), 20),
+                "&flowRate=",
+                uint256(uint96(flowRate)).toString(),
+                "&start_date=",
+                // @note upcasting is safe
+                uint256(flowData.flowStartDate).toString()
+            )
+        );
     }
 
     /// @inheritdoc IERC721
@@ -246,55 +224,37 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     }
 
     /// @inheritdoc IFlowNFTBase
-    function getTokenId(
-        address superToken,
-        address sender,
-        address receiver
-    ) external view returns (uint256 tokenId) {
+    function getTokenId(address superToken, address sender, address receiver) external view returns (uint256 tokenId) {
         tokenId = _getTokenId(superToken, sender, receiver);
     }
 
-    function _getTokenId(
-        address superToken,
-        address sender,
-        address receiver
-    ) internal view returns (uint256 tokenId) {
-        tokenId = uint256(
-            keccak256(abi.encode(block.chainid, superToken, sender, receiver))
-        );
+    function _getTokenId(address superToken, address sender, address receiver)
+        internal
+        view
+        returns (uint256 tokenId)
+    {
+        tokenId = uint256(keccak256(abi.encode(block.chainid, superToken, sender, receiver)));
     }
 
     /// @inheritdoc IERC721
-    function getApproved(
-        uint256 tokenId
-    ) public view virtual override returns (address) {
+    function getApproved(uint256 tokenId) public view virtual override returns (address) {
         _requireMinted(tokenId);
 
         return _tokenApprovals[tokenId];
     }
 
     /// @inheritdoc IERC721
-    function setApprovalForAll(
-        address operator,
-        bool approved
-    ) external virtual override {
+    function setApprovalForAll(address operator, bool approved) external virtual override {
         _setApprovalForAll(msg.sender, operator, approved);
     }
 
     /// @inheritdoc IERC721
-    function isApprovedForAll(
-        address owner,
-        address operator
-    ) public view virtual override returns (bool) {
+    function isApprovedForAll(address owner, address operator) public view virtual override returns (bool) {
         return _operatorApprovals[owner][operator];
     }
 
     /// @inheritdoc IERC721
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external virtual override {
+    function transferFrom(address from, address to, uint256 tokenId) external virtual override {
         if (!_isApprovedOrOwner(msg.sender, tokenId)) {
             revert CFA_NFT_TRANSFER_CALLER_NOT_OWNER_OR_APPROVED_FOR_ALL();
         }
@@ -303,21 +263,12 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     }
 
     /// @inheritdoc IERC721
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external virtual override {
+    function safeTransferFrom(address from, address to, uint256 tokenId) external virtual override {
         safeTransferFrom(from, to, tokenId, "");
     }
 
     /// @inheritdoc IERC721
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes memory data
-    ) public virtual override {
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public virtual override {
         if (!_isApprovedOrOwner(msg.sender, tokenId)) {
             revert CFA_NFT_TRANSFER_CALLER_NOT_OWNER_OR_APPROVED_FOR_ALL();
         }
@@ -330,14 +281,9 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     /// @param spender the spender of the token
     /// @param tokenId the id of the token to be spent
     /// @return whether `tokenId` can be spent by `spender`
-    function _isApprovedOrOwner(
-        address spender,
-        uint256 tokenId
-    ) internal view returns (bool) {
+    function _isApprovedOrOwner(address spender, uint256 tokenId) internal view returns (bool) {
         address owner = FlowNFTBase.ownerOf(tokenId);
-        return (spender == owner ||
-            isApprovedForAll(owner, spender) ||
-            getApproved(tokenId) == spender);
+        return (spender == owner || isApprovedForAll(owner, spender) || getApproved(tokenId) == spender);
     }
 
     /// @notice Reverts if `tokenId` doesn't exist
@@ -367,11 +313,7 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
         emit Approval(_ownerOf(tokenId), to, tokenId);
     }
 
-    function _setApprovalForAll(
-        address owner,
-        address operator,
-        bool approved
-    ) internal {
+    function _setApprovalForAll(address owner, address operator, bool approved) internal {
         if (owner == operator) revert CFA_NFT_APPROVE_TO_CALLER();
 
         _operatorApprovals[owner][operator] = approved;
@@ -382,20 +324,14 @@ abstract contract FlowNFTBase is UUPSProxiable, IFlowNFTBase {
     /// @dev Returns the flow data of the `tokenId`. Does NOT revert if token doesn't exist.
     /// @param tokenId the token id whose existence we're checking
     /// @return flowData the FlowNFTData struct for `tokenId`
-    function flowDataByTokenId(
-        uint256 tokenId
-    ) public view virtual returns (FlowNFTData memory flowData);
+    function flowDataByTokenId(uint256 tokenId) public view virtual returns (FlowNFTData memory flowData);
 
     /// @dev Returns the owner of the `tokenId`. Does NOT revert if token doesn't exist.
     /// @param tokenId the token id whose existence we're checking
     /// @return address the address of the owner of `tokenId`
     function _ownerOf(uint256 tokenId) internal view virtual returns (address);
 
-    function _transfer(
-        address from,
-        address to,
-        uint256 tokenId
-    ) internal virtual;
+    function _transfer(address from, address to, uint256 tokenId) internal virtual;
 
     function _safeTransfer(
         address from,

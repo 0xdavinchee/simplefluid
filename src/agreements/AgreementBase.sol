@@ -1,39 +1,27 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity 0.8.19;
 
-import { UUPSProxiable } from "../upgradability/UUPSProxiable.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ISuperAgreement } from "../interfaces/superfluid/ISuperAgreement.sol";
 
 /**
- * @title Superfluid agreement base boilerplate contract
- * @author Superfluid
+ * @title AgreementBase Contract
+ * @author Superfluid | Modified by 0xdavinchee
  */
-abstract contract AgreementBase is
-    UUPSProxiable,
-    ISuperAgreement
-{
-    address immutable internal _host;
+abstract contract AgreementBase is ISuperAgreement, Initializable, UUPSUpgradeable {
+    address internal _host;
 
     // Custom Erorrs
     error AGREEMENT_BASE_ONLY_HOST(); // 0x1601d91e
 
-    constructor(address host)
-    {
-        _host = host;
+    function initialize(address host_) external initializer {
+        _host = host_;
     }
 
-    function proxiableUUID()
-        public view override
-        returns (bytes32)
-    {
-        return ISuperAgreement(this).agreementType();
-    }
-
-    function updateCode(address newAddress)
-        external override
-    {
+    function _authorizeUpgrade(
+        address // newImplementation_
+    ) internal view override {
         if (msg.sender != _host) revert AGREEMENT_BASE_ONLY_HOST();
-        return _updateCodeAddress(newAddress);
     }
-
 }

@@ -7,20 +7,19 @@ import {
 } from "../interfaces/superfluid/ISuperfluid.sol";
 import { SuperfluidGovernanceBase } from "../gov/SuperfluidGovernanceBase.sol";
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-
-
 /**
  * @title Test governance contract
  * @author Superfluid
  * @dev A initializable version of the governance for testing purpose
  */
 contract TestGovernance is
-    Ownable,
     SuperfluidGovernanceBase
 {
     ISuperfluid private _host;
+    address public owner;
 
+    // @note in the real governance, be explicit whether or not governance is upgradeable
+    // you probably want it to be, but it is decided by the votes of the members
     function initialize(
         ISuperfluid host,
         address rewardAddress,
@@ -33,6 +32,8 @@ contract TestGovernance is
         // can initialize only once
         assert(address(host) != address(0));
         assert(address(_host) == address(0));
+        
+        owner = msg.sender;
 
         _host = host;
 
@@ -49,6 +50,11 @@ contract TestGovernance is
         internal view override
     {
         assert(host == _host);
-        assert(owner() == _msgSender());
+        assert(msg.sender == owner);
+    }
+
+    function transferOwnership(address newOwner_) external {
+        assert(msg.sender == owner);
+        owner = newOwner_;
     }
 }

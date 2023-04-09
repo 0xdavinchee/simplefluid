@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity >= 0.8.4;
 
+import { IBeacon } from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import { ISuperToken } from "./ISuperToken.sol";
+import { ISuperfluid } from "./ISuperfluid.sol";
 
 import {
     IERC20,
@@ -24,17 +26,15 @@ interface ISuperTokenFactory {
     error SUPER_TOKEN_FACTORY_NON_UPGRADEABLE_IS_DEPRECATED();  // 0x478b8e83
     error SUPER_TOKEN_FACTORY_ZERO_ADDRESS();                   // 0x305c9e82
 
-    /**************************************************************************
-    * Immutable Variables
-    **************************************************************************/
-
     /**
      * @dev Get superfluid host contract address
      */
     function getHost() external view returns(address host);
 
     /// @dev Initialize the contract
-    function initialize() external;
+    function initialize(ISuperfluid host, IBeacon superTokenBeacon) external;
+
+    function getSuperTokenBeacon() external view returns (address);
 
     /**
      * @notice Get the canonical super token logic.
