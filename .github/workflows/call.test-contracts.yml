@@ -7,7 +7,7 @@ env:
   FOUNDRY_PROFILE: ci
 
 jobs:
-  test-contracts:
+  test:
     strategy:
       fail-fast: true
 
@@ -22,10 +22,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 19.x
-          cache: "pnpm"
 
       - uses: pnpm/action-setup@v2
-        name: Install pnpm
+        name: Install pnpm and packages
         id: pnpm-install
         with:
           version: 8

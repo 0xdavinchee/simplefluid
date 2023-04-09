@@ -4,45 +4,5 @@ on:
     branches: ["*"]
 
 jobs:
-  test:
-    strategy:
-      fail-fast: true
-
-    name: Test Contracts
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 19.x
-          cache: "pnpm"
-
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm and packages
-        id: pnpm-install
-        with:
-          version: 8
-
-      - name: Install packages
-        run: pnpm install
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
-
-      - name: Run Forge build
-        run: |
-          forge --version
-          forge install
-          forge build --sizes
-        id: build
-
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
-        id: test
+  build:
+    uses: ./.github/workflows/call.test-contracts.yml
