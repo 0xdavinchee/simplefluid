@@ -142,7 +142,7 @@ contract SuperfluidFrameworkDeployer {
                 abi.encodeWithSelector(
                     IFlowNFTBase.initialize.selector,
                     superTokenLogic,
-                    host,
+                    cfaV1,
                     "Constant Outflow NFT",
                     "COF"
                 )
@@ -158,7 +158,7 @@ contract SuperfluidFrameworkDeployer {
                 abi.encodeWithSelector(
                     IFlowNFTBase.initialize.selector,
                     superTokenLogic,
-                    host,
+                    cfaV1,
                     "Constant Inflow NFT",
                     "CIF"
                 )

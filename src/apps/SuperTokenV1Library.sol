@@ -22,6 +22,15 @@ import {
  */
 library SuperTokenV1Library {
 
+    /**
+     * @dev Get the host and cfa from the token
+     * @param token The token used in flow
+     */
+    function warmUp(ISuperToken token) external {
+        _getAndCacheHostAndCFA(token);
+        _getAndCacheHostAndIDA(token);
+    }
+
     /** CFA BASE CRUD ************************************* */
 
     /**

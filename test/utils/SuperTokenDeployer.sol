@@ -24,6 +24,7 @@ import {
 import { TestGovernance } from "./TestGovernance.sol";
 import { TestResolver } from "./TestResolver.sol";
 import { TestToken } from "./TestToken.sol";
+import { SuperfluidFrameworkDeployer } from "./SuperfluidFrameworkDeployer.sol";
 
 contract SuperTokenDeployer {
 
@@ -33,11 +34,12 @@ contract SuperTokenDeployer {
     SuperTokenFactory internal superTokenFactory;
     TestResolver internal testResolver;
 
-    constructor(address superTokenFactoryAddress, address resolverAddress) {
+    constructor(SuperfluidFrameworkDeployer.Framework memory framework) {
         // @note SuperfluidFrameworkDeployer must be deployed at this point
 
-        superTokenFactory = SuperTokenFactory(superTokenFactoryAddress);
-        testResolver = TestResolver(resolverAddress);
+        superTokenFactory = framework.superTokenFactory;
+        testResolver = framework.resolver;
+        testResolver.addAdmin(address(this));
     }
 
     /// @notice Deploys an ERC20 and a Wrapper Super Token for the ERC20 and lists both in the resolver

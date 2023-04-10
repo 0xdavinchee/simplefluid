@@ -116,8 +116,10 @@ contract SuperToken is Initializable, SuperfluidToken, ISuperToken {
     function initializeProxy(IERC20 underlyingToken, uint8 underlyingDecimals, string calldata n, string calldata s)
         external
         override
-        initializer // OpenZeppelin Initializable
     {
+        if (address(_underlyingToken) != address(0)) {
+            revert SUPER_TOKEN_ALREADY_INITIALIZED();
+        }
         _underlyingToken = underlyingToken;
         _underlyingDecimals = underlyingDecimals;
 
@@ -125,7 +127,7 @@ contract SuperToken is Initializable, SuperfluidToken, ISuperToken {
         _symbol = s;
 
         // register interfaces
-        ERC777Helper.register(address(this));
+        // ERC777Helper.register(address(this));
 
         // help tools like explorers detect the token contract
         emit Transfer(address(0), address(0), 0);
@@ -336,11 +338,11 @@ contract SuperToken is Initializable, SuperfluidToken, ISuperToken {
         bytes memory userData,
         bytes memory operatorData
     ) private {
-        address implementer =
-            ERC777Helper._ERC1820_REGISTRY.getInterfaceImplementer(from, ERC777Helper._TOKENS_SENDER_INTERFACE_HASH);
-        if (implementer != address(0)) {
-            IERC777Sender(implementer).tokensToSend(operator, from, to, amount, userData, operatorData);
-        }
+        // address implementer =
+        //     ERC777Helper._ERC1820_REGISTRY.getInterfaceImplementer(from, ERC777Helper._TOKENS_SENDER_INTERFACE_HASH);
+        // if (implementer != address(0)) {
+        //     IERC777Sender(implementer).tokensToSend(operator, from, to, amount, userData, operatorData);
+        // }
     }
 
     /**
@@ -363,13 +365,13 @@ contract SuperToken is Initializable, SuperfluidToken, ISuperToken {
         bytes memory operatorData,
         bool requireReceptionAck
     ) private {
-        address implementer =
-            ERC777Helper._ERC1820_REGISTRY.getInterfaceImplementer(to, ERC777Helper._TOKENS_RECIPIENT_INTERFACE_HASH);
-        if (implementer != address(0)) {
-            IERC777Recipient(implementer).tokensReceived(operator, from, to, amount, userData, operatorData);
-        } else if (requireReceptionAck) {
-            if (to.isContract()) revert SUPER_TOKEN_NOT_ERC777_TOKENS_RECIPIENT();
-        }
+        // address implementer =
+        //     ERC777Helper._ERC1820_REGISTRY.getInterfaceImplementer(to, ERC777Helper._TOKENS_RECIPIENT_INTERFACE_HASH);
+        // if (implementer != address(0)) {
+        //     IERC777Recipient(implementer).tokensReceived(operator, from, to, amount, userData, operatorData);
+        // } else if (requireReceptionAck) {
+        //     if (to.isContract()) revert SUPER_TOKEN_NOT_ERC777_TOKENS_RECIPIENT();
+        // }
     }
 
     /**

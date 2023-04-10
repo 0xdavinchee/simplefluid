@@ -15,8 +15,8 @@ import {
 } from "../interfaces/superfluid/ISuperTokenFactory.sol";
 import { ISuperfluid } from "../interfaces/superfluid/ISuperfluid.sol";
 import { SuperToken } from "../superfluid/SuperToken.sol";
-import { ConstantOutflowNFT } from "../superfluid/ConstantOutflowNFT.sol";
-import { ConstantInflowNFT } from "../superfluid/ConstantInflowNFT.sol";
+import { ConstantOutflowNFT, IConstantOutflowNFT } from "../superfluid/ConstantOutflowNFT.sol";
+import { ConstantInflowNFT, IConstantInflowNFT } from "../superfluid/ConstantInflowNFT.sol";
 
 /// @title SuperTokenFactory
 /// @author Superfluid | Modified by 0xdavinchee
@@ -179,8 +179,17 @@ contract SuperTokenFactory is Initializable, UUPSUpgradeable, ISuperTokenFactory
         if (address(underlyingToken) == address(0)) {
             revert SUPER_TOKEN_FACTORY_ZERO_ADDRESS();
         }
-
-        bytes memory data;
+        
+        ISuperToken superTokenLogic = ISuperToken(_superTokenBeacon.implementation());
+        IConstantOutflowNFT constantOutflowNFT = IConstantOutflowNFT(superTokenLogic.constantOutflowNFT());
+        IConstantInflowNFT constantInflowNFT = IConstantInflowNFT(superTokenLogic.constantInflowNFT());
+        
+        bytes memory data = abi.encodeWithSelector(
+            ISuperToken.initializeLogic.selector,
+            _host,
+            constantOutflowNFT,
+            constantInflowNFT
+        );
         if (upgradability == Upgradability.NON_UPGRADABLE) {
             revert SUPER_TOKEN_FACTORY_NON_UPGRADEABLE_IS_DEPRECATED();
         } else if (upgradability == Upgradability.SEMI_UPGRADABLE) {

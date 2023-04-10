@@ -7,14 +7,14 @@ import { ISuperToken } from "../../src/interfaces/superfluid/ISuperToken.sol";
 import { ISuperTokenFactory } from "../../src/interfaces/superfluid/ISuperTokenFactory.sol";
 import { SuperfluidFrameworkDeployer } from "../utils/SuperfluidFrameworkDeployer.sol";
 
-contract SuperfluidFrameworkDeployerTest is Test {
+contract SuperfluidFrameworkDeployerUnitTest is Test {
     SuperfluidFrameworkDeployer internal _deployer;
 
     function setUp() public {
         _deployer = new SuperfluidFrameworkDeployer();
     }
 
-    function test_Passing_All_Contracts_Deployed() public {
+    function testPassingAllContractsDeployed() public {
         SuperfluidFrameworkDeployer.Framework memory framework = _deployer.getFramework();
         assert(address(framework.governance) != address(0));
         assert(address(framework.cfa) != address(0));
@@ -26,7 +26,7 @@ contract SuperfluidFrameworkDeployerTest is Test {
         assert(address(framework.cfaV1Forwarder) != address(0));
     }
 
-    function test_Passing_Resolver_Set_Contracts() public {
+    function testPassingResolverSetContracts() public {
         SuperfluidFrameworkDeployer.Framework memory framework = _deployer.getFramework();
         assertEq(
             framework.resolver.get("TestGovernance.test"), address(framework.governance), "SuperfluidGovernance unset"
@@ -67,7 +67,7 @@ contract SuperfluidFrameworkDeployerTest is Test {
         );
     }
 
-    function test_Pasisng_Transfer_Ownership() public {
+    function testPassingTransferOwnership() public {
         SuperfluidFrameworkDeployer.Framework memory framework = _deployer.getFramework();
         assertEq(framework.governance.owner(), address(_deployer), "Deployer should be owner");
         _deployer.transferOwnership(address(0x1));
