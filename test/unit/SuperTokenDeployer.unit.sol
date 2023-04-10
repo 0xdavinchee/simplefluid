@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { SuperTokenV1Library } from "../../src/apps/SuperTokenV1Library.sol";
-import { SimplefluidFoundryTester, SuperToken } from "../utils/SimplefluidFoundryTester.sol";
+import { SimplefluidFoundryTester, SuperToken } from "../SimplefluidFoundryTester.sol";
 
 contract SuperTokenDeployerUnitTest is SimplefluidFoundryTester {
     using SuperTokenV1Library for SuperToken;

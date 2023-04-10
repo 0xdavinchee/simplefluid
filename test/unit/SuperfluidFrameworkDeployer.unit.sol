@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import { ISuperToken } from "../../src/interfaces/superfluid/ISuperToken.sol";
 import { ISuperTokenFactory } from "../../src/interfaces/superfluid/ISuperTokenFactory.sol";
-import { SuperfluidFrameworkDeployer } from "../utils/SuperfluidFrameworkDeployer.sol";
+import { SuperfluidFrameworkDeployer } from "../../src/test/SuperfluidFrameworkDeployer.sol";
 
 contract SuperfluidFrameworkDeployerUnitTest is Test {
     SuperfluidFrameworkDeployer internal _deployer;

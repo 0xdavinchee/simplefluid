@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 
 import { SuperTokenV1Library } from "../../src/apps/SuperTokenV1Library.sol";
-import { SuperfluidFrameworkDeployer } from "../utils/SuperfluidFrameworkDeployer.sol";
-import { SuperToken, SuperTokenDeployer, TestToken } from "../utils/SuperTokenDeployer.sol";
+import { SuperfluidFrameworkDeployer } from "../../src/test/SuperfluidFrameworkDeployer.sol";
+import { SuperToken, SuperTokenDeployer, TestToken } from "../../src/test/SuperTokenDeployer.sol";
 
 contract SimplefluidFoundryTester is Test {
     using SuperTokenV1Library for SuperToken;
