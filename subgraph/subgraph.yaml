@@ -1,0 +1,339 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: TestGovernance
+    network: localhost
+    source:
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+      abi: TestGovernance
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - AppFactoryAuthorizationChanged
+        - AppRegistrationKeyChanged
+        - CFAv1LiquidationPeriodChanged
+        - ConfigChanged
+        - PPPConfigurationChanged
+        - RewardAddressChanged
+        - SuperTokenMinimumDepositChanged
+        - TrustedForwarderChanged
+      abis:
+        - name: TestGovernance
+          file: ./abis/TestGovernance.json
+      eventHandlers:
+        - event: AppFactoryAuthorizationChanged(indexed address,indexed address,bool)
+          handler: handleAppFactoryAuthorizationChanged
+        - event: AppRegistrationKeyChanged(indexed address,indexed address,string,uint256)
+          handler: handleAppRegistrationKeyChanged
+        - event: CFAv1LiquidationPeriodChanged(indexed address,indexed address,bool,uint256)
+          handler: handleCFAv1LiquidationPeriodChanged
+        - event: ConfigChanged(indexed address,indexed address,bytes32,bool,uint256)
+          handler: handleConfigChanged
+        - event: PPPConfigurationChanged(indexed address,indexed address,bool,uint256,uint256)
+          handler: handlePPPConfigurationChanged
+        - event: RewardAddressChanged(indexed address,indexed address,bool,address)
+          handler: handleRewardAddressChanged
+        - event: SuperTokenMinimumDepositChanged(indexed address,indexed address,bool,uint256)
+          handler: handleSuperTokenMinimumDepositChanged
+        - event: TrustedForwarderChanged(indexed address,indexed address,bool,address,bool)
+          handler: handleTrustedForwarderChanged
+      file: ./src/test-governance.ts
+  - kind: ethereum
+    name: Superfluid
+    network: localhost
+    source:
+      address: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+      abi: Superfluid
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - AdminChanged
+        - AgreementClassRegistered
+        - AgreementClassUpdated
+        - AppRegistered
+        - BeaconUpgraded
+        - GovernanceReplaced
+        - Initialized
+        - Jail
+        - SuperTokenFactoryUpdated
+        - SuperTokenLogicUpdated
+        - Upgraded
+      abis:
+        - name: Superfluid
+          file: ./abis/Superfluid.json
+      eventHandlers:
+        - event: AdminChanged(address,address)
+          handler: handleAdminChanged
+        - event: AgreementClassRegistered(bytes32,address)
+          handler: handleAgreementClassRegistered
+        - event: AgreementClassUpdated(bytes32,address)
+          handler: handleAgreementClassUpdated
+        - event: AppRegistered(indexed address)
+          handler: handleAppRegistered
+        - event: BeaconUpgraded(indexed address)
+          handler: handleBeaconUpgraded
+        - event: GovernanceReplaced(address,address)
+          handler: handleGovernanceReplaced
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: Jail(indexed address,uint256)
+          handler: handleJail
+        - event: SuperTokenFactoryUpdated(address)
+          handler: handleSuperTokenFactoryUpdated
+        - event: SuperTokenLogicUpdated(indexed address,address)
+          handler: handleSuperTokenLogicUpdated
+        - event: Upgraded(indexed address)
+          handler: handleUpgraded
+      file: ./src/superfluid.ts
+  - kind: ethereum
+    name: ConstantFlowAgreementV1
+    network: localhost
+    source:
+      address: "0x0165878A594ca255338adfa4d48449f69242Eb8F"
+      abi: ConstantFlowAgreementV1
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - ConstantFlowAgreementV1AdminChanged
+        - ConstantFlowAgreementV1BeaconUpgraded
+        - FlowOperatorUpdated
+        - FlowUpdated
+        - FlowUpdatedExtension
+        - ConstantFlowAgreementV1Initialized
+        - ConstantFlowAgreementV1Upgraded
+      abis:
+        - name: ConstantFlowAgreementV1
+          file: ./abis/ConstantFlowAgreementV1.json
+      eventHandlers:
+        - event: AdminChanged(address,address)
+          handler: handleAdminChanged
+        - event: BeaconUpgraded(indexed address)
+          handler: handleBeaconUpgraded
+        - event: FlowOperatorUpdated(indexed address,indexed address,indexed address,uint8,int96)
+          handler: handleFlowOperatorUpdated
+        - event: FlowUpdated(indexed address,indexed address,indexed
+            address,int96,int256,int256,bytes)
+          handler: handleFlowUpdated
+        - event: FlowUpdatedExtension(indexed address,uint256)
+          handler: handleFlowUpdatedExtension
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: Upgraded(indexed address)
+          handler: handleUpgraded
+      file: ./src/constant-flow-agreement-v-1.ts
+  - kind: ethereum
+    name: InstantDistributionAgreementV1
+    network: localhost
+    source:
+      address: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
+      abi: InstantDistributionAgreementV1
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - InstantDistributionAgreementV1AdminChanged
+        - InstantDistributionAgreementV1BeaconUpgraded
+        - IndexCreated
+        - IndexDistributionClaimed
+        - IndexSubscribed
+        - IndexUnitsUpdated
+        - IndexUnsubscribed
+        - IndexUpdated
+        - InstantDistributionAgreementV1Initialized
+        - SubscriptionApproved
+        - SubscriptionDistributionClaimed
+        - SubscriptionRevoked
+        - SubscriptionUnitsUpdated
+        - InstantDistributionAgreementV1Upgraded
+      abis:
+        - name: InstantDistributionAgreementV1
+          file: ./abis/InstantDistributionAgreementV1.json
+      eventHandlers:
+        - event: AdminChanged(address,address)
+          handler: handleAdminChanged
+        - event: BeaconUpgraded(indexed address)
+          handler: handleBeaconUpgraded
+        - event: IndexCreated(indexed address,indexed address,indexed uint32,bytes)
+          handler: handleIndexCreated
+        - event: IndexDistributionClaimed(indexed address,indexed address,indexed
+            uint32,address,uint256)
+          handler: handleIndexDistributionClaimed
+        - event: IndexSubscribed(indexed address,indexed address,indexed uint32,address,bytes)
+          handler: handleIndexSubscribed
+        - event: IndexUnitsUpdated(indexed address,indexed address,indexed
+            uint32,address,uint128,bytes)
+          handler: handleIndexUnitsUpdated
+        - event: IndexUnsubscribed(indexed address,indexed address,indexed uint32,address,bytes)
+          handler: handleIndexUnsubscribed
+        - event: IndexUpdated(indexed address,indexed address,indexed
+            uint32,uint128,uint128,uint128,uint128,bytes)
+          handler: handleIndexUpdated
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: SubscriptionApproved(indexed address,indexed address,address,uint32,bytes)
+          handler: handleSubscriptionApproved
+        - event: SubscriptionDistributionClaimed(indexed address,indexed
+            address,address,uint32,uint256)
+          handler: handleSubscriptionDistributionClaimed
+        - event: SubscriptionRevoked(indexed address,indexed address,address,uint32,bytes)
+          handler: handleSubscriptionRevoked
+        - event: SubscriptionUnitsUpdated(indexed address,indexed
+            address,address,uint32,uint128,bytes)
+          handler: handleSubscriptionUnitsUpdated
+        - event: Upgraded(indexed address)
+          handler: handleUpgraded
+      file: ./src/instant-distribution-agreement-v-1.ts
+  - kind: ethereum
+    name: SuperTokenFactory
+    network: localhost
+    source:
+      address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016"
+      abi: SuperTokenFactory
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - SuperTokenFactoryAdminChanged
+        - SuperTokenFactoryBeaconUpgraded
+        - CustomSuperTokenCreated
+        - SuperTokenFactoryInitialized
+        - SuperTokenCreated
+        - SuperTokenLogicCreated
+        - SuperTokenFactoryUpgraded
+      abis:
+        - name: SuperTokenFactory
+          file: ./abis/SuperTokenFactory.json
+      eventHandlers:
+        - event: AdminChanged(address,address)
+          handler: handleAdminChanged
+        - event: BeaconUpgraded(indexed address)
+          handler: handleBeaconUpgraded
+        - event: CustomSuperTokenCreated(indexed address)
+          handler: handleCustomSuperTokenCreated
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: SuperTokenCreated(indexed address)
+          handler: handleSuperTokenCreated
+        - event: SuperTokenLogicCreated(indexed address)
+          handler: handleSuperTokenLogicCreated
+        - event: Upgraded(indexed address)
+          handler: handleUpgraded
+      file: ./src/super-token-factory.ts
+  - kind: ethereum
+    name: ConstantOutflowNFT
+    network: localhost
+    source:
+      address: "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"
+      abi: ConstantOutflowNFT
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - ConstantOutflowNFTAdminChanged
+        - Approval
+        - ApprovalForAll
+        - ConstantOutflowNFTBeaconUpgraded
+        - ConstantOutflowNFTInitialized
+        - MetadataUpdate
+        - Transfer
+        - ConstantOutflowNFTUpgraded
+      abis:
+        - name: ConstantOutflowNFT
+          file: ./abis/ConstantOutflowNFT.json
+      eventHandlers:
+        - event: AdminChanged(address,address)
+          handler: handleAdminChanged
+        - event: Approval(indexed address,indexed address,indexed uint256)
+          handler: handleApproval
+        - event: ApprovalForAll(indexed address,indexed address,bool)
+          handler: handleApprovalForAll
+        - event: BeaconUpgraded(indexed address)
+          handler: handleBeaconUpgraded
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: MetadataUpdate(uint256)
+          handler: handleMetadataUpdate
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+        - event: Upgraded(indexed address)
+          handler: handleUpgraded
+      file: ./src/constant-outflow-nft.ts
+  - kind: ethereum
+    name: ConstantInflowNFT
+    network: localhost
+    source:
+      address: "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c"
+      abi: ConstantInflowNFT
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - ConstantInflowNFTAdminChanged
+        - ConstantInflowNFTApproval
+        - ConstantInflowNFTApprovalForAll
+        - ConstantInflowNFTBeaconUpgraded
+        - ConstantInflowNFTInitialized
+        - ConstantInflowNFTMetadataUpdate
+        - ConstantInflowNFTTransfer
+        - ConstantInflowNFTUpgraded
+      abis:
+        - name: ConstantInflowNFT
+          file: ./abis/ConstantInflowNFT.json
+      eventHandlers:
+        - event: AdminChanged(address,address)
+          handler: handleAdminChanged
+        - event: Approval(indexed address,indexed address,indexed uint256)
+          handler: handleApproval
+        - event: ApprovalForAll(indexed address,indexed address,bool)
+          handler: handleApprovalForAll
+        - event: BeaconUpgraded(indexed address)
+          handler: handleBeaconUpgraded
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: MetadataUpdate(uint256)
+          handler: handleMetadataUpdate
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+        - event: Upgraded(indexed address)
+          handler: handleUpgraded
+      file: ./src/constant-inflow-nft.ts
+  - kind: ethereum
+    name: TestResolver
+    network: localhost
+    source:
+      address: "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1"
+      abi: TestResolver
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - RoleAdminChanged
+        - RoleGranted
+        - RoleRevoked
+        - Set
+      abis:
+        - name: TestResolver
+          file: ./abis/TestResolver.json
+      eventHandlers:
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleRoleAdminChanged
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleRoleRevoked
+        - event: Set(indexed string,address)
+          handler: handleSet
+      file: ./src/test-resolver.ts

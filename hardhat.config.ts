@@ -1,9 +1,9 @@
-import fs from "fs";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-address-exporter";
 import "hardhat-contract-sizer";
 import "@openzeppelin/hardhat-upgrades";
+import "@graphprotocol/hardhat-graph"
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -17,6 +17,7 @@ const config: HardhatUserConfig = {
   },
   paths: {
     sources: "./src",
+    subgraph: "./subgraph",
   },
   addressExporter: {
     outDir: "./addresses",

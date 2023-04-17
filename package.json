@@ -1,5 +1,5 @@
 {
-  "name": "gm",
+  "name": "simplefluid",
   "description": "gm",
   "repository": {
     "type": "git",
@@ -22,9 +22,13 @@
     "gas": "forge test --gas-report",
     "snapshot": "forge snapshot",
     "snapshot-diff": "forge snapshot --diff",
-    "slither": "slither ."
+    "slither": "slither .",
+    "create-local": "graph create --node http://127.0.0.1:8020 simplefluid",
+    "deploy-local": "cd ./subgraph && graph deploy --ipfs http://127.0.0.1:5001 --node http://127.0.0.1:8020 simplefluid",
+    "hardhat-local": "hardhat node --hostname 0.0.0.0"
   },
   "devDependencies": {
+    "@graphprotocol/hardhat-graph": "https://github.com/graphprotocol/hardhat-graph",
     "@nomicfoundation/hardhat-toolbox": "^2.0.2",
     "@openzeppelin/contracts": "^4.8.2",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",

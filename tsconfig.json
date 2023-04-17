@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["scripts", "hardhat.config.ts", "typechain-types"]
+  "include": ["scripts", "deploy", "hardhat.config.ts", "typechain-types"]
 }

@@ -31,3 +31,9 @@ lcov.info
 
 # Misc
 .DS_STORE
+
+# Subgraph
+subgraph/generated
+subgraph/build
+# Matchstick
+subgraph/tests/.*
